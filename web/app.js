@@ -700,9 +700,10 @@ async function loadPlaylists(ownerId){
 const cssRenderer=new THREE.CSS3DRenderer(); const cssScene=new THREE.Scene();
 cssRenderer.domElement.className='css3d'; document.body.insertBefore(cssRenderer.domElement, canvas);
 const ytWrap=document.createElement('div'); ytWrap.className='ytwrap'; ytWrap.innerHTML='<div id="ytp"></div>';
-const ytObj=new THREE.CSS3DObject(ytWrap); cssScene.add(ytObj); ytObj.visible=false;
+const ytObj=new THREE.CSS3DObject(ytWrap); cssScene.add(ytObj); ytWrap.style.opacity='0';
+cssRenderer.domElement.firstChild.appendChild(ytWrap);
 let yt=null, ytReady=false, ytWant=null;
-window.onYouTubeIframeAPIReady=()=>{ yt=new YT.Player('ytp',{ width:1280, height:720, playerVars:{controls:0, rel:0, playsinline:1, modestbranding:1, iv_load_policy:3, disablekb:1},
+window.onYouTubeIframeAPIReady=()=>{ yt=new YT.Player('ytp',{ width:1280, height:720, playerVars:{controls:0, rel:0, playsinline:1, modestbranding:1, iv_load_policy:3, disablekb:1, origin:location.origin},
   events:{ onReady:()=>{ ytReady=true; if(ytWant) loadNow(ytWant.auto); },
     onStateChange:e=>{ const S=YT.PlayerState;
       if(e.data===S.PLAYING){ setPlaying(true); fillTitle(); }
@@ -719,12 +720,13 @@ function loadNow(autoplay, startAt=0){ updateNow(); const t=nowPL&&nowPL.tracks[
   if(!autoplay){ setPlaying(false); $('tapplay').hidden=false; } }
 function fillTitle(){ const t=nowPL&&nowPL.tracks[nowIdx]; if(!t||!yt.getVideoData) return; const real=(yt.getVideoData().title||'').trim(); if(!real) return;
   if(isPlaceholderTitle(t)){ t.title=real.slice(0,120); updateNow(); if(view.isOwner) savePL(nowPL); if(!$('pl').hidden) renderPL(); } }
-function togglePlay(){ if(!ytReady||!(nowPL&&nowPL.tracks[nowIdx])){ playing=!playing; playBtn.textContent=playing?'❚❚':'▶'; return; }
+function togglePlay(){ if(!ytReady&&nowPL&&nowPL.tracks[nowIdx]){ toast(window.YT?'유튜브 플레이어를 준비하고 있어요 · 잠시 후 다시 눌러주세요':'유튜브 플레이어를 불러오지 못했어요 · 광고 차단 기능이 유튜브를 막고 있는지 확인해주세요'); return; }
+  if(!ytReady||!(nowPL&&nowPL.tracks[nowIdx])){ playing=!playing; playBtn.textContent=playing?'❚❚':'▶'; return; }
   const st=yt.getPlayerState(); if(st===YT.PlayerState.PLAYING) yt.pauseVideo(); else { if(st===-1||st===YT.PlayerState.CUED||st===YT.PlayerState.ENDED) yt.playVideo(); else yt.playVideo(); } }
 $('tapplay').addEventListener('click',()=>{ togglePlay(); });
 function updateTVLayer(){ const show=ytReady&&back.visible&&!!(nowPL&&nowPL.tracks[nowIdx]);
-  ytObj.visible=show; tvScreen.material=show?tvHoleMat:tvScreenMat;
-  if(show){ tvScreen.updateWorldMatrix(true,false); tvScreen.matrixWorld.decompose(ytObj.position, ytObj.quaternion, ytObj.scale); ytObj.scale.set(5.05/1280, 2.84/720, 1); } }
+  ytWrap.style.opacity=show?'1':'0'; tvScreen.material=show?tvHoleMat:tvScreenMat;
+  { tvScreen.updateWorldMatrix(true,false); tvScreen.matrixWorld.decompose(ytObj.position, ytObj.quaternion, ytObj.scale); ytObj.scale.set(5.05/1280, 2.84/720, 1); } }
 
 // ---------- realtime: who is here, where they walk, chat and the shared DJ ----------
 const peers=new Map();
