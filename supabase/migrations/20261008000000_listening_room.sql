@@ -202,11 +202,11 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('room-photos', 'room-photos', false, 5 * 1024 * 1024, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
-create policy "room photos readable with room" on storage.objects for select using (
+create policy "lr room photos readable with room" on storage.objects for select using (
   bucket_id = 'room-photos' and exists (
     select 1 from public.lr_rooms r   -- lr_rooms RLS already limits this to rooms the viewer may see
     where r.owner_id::text = (storage.foldername(name))[1]));
-create policy "upload into own folder" on storage.objects for insert to authenticated with check (
+create policy "lr room photos upload into own folder" on storage.objects for insert to authenticated with check (
   bucket_id = 'room-photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "delete own photos" on storage.objects for delete to authenticated using (
+create policy "lr room photos delete own" on storage.objects for delete to authenticated using (
   bucket_id = 'room-photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
