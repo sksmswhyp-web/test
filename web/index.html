@@ -187,9 +187,15 @@ body.editing .chatbox,body.dressing .chatbox,body.editing .pad,body.dressing .pa
 .pad{position:absolute;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:none;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:6px;padding:8px}
 .pad button{font:inherit;font-size:18px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--ink);touch-action:none}
 .pad .up{grid-column:2}
-.sitbtn{position:absolute;left:16px;bottom:calc(318px + env(safe-area-inset-bottom,0px));padding:10px 14px;color:var(--ink);background:var(--glass)!important;border:1px solid var(--line)!important}
-body.editing .sitbtn,body.dressing .sitbtn{display:none}
-body.chat-min .sitbtn{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
+.actions{position:absolute;left:16px;bottom:calc(318px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 32px)}
+.actions .chip{color:var(--ink);padding:8px 10px}
+.actions .vsep{width:1px;height:24px;background:var(--line);margin:0 2px}
+.emo{width:38px;height:38px;border:0;border-radius:10px;background:rgba(255,255,255,.07);font-size:19px;cursor:pointer;display:grid;place-items:center}
+.emo:hover{background:rgba(255,255,255,.16)}
+.emo[aria-pressed="true"]{background:var(--accent)}
+#tap{font-variant-numeric:tabular-nums}
+body.editing .actions,body.dressing .actions{display:none}
+body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 @media (pointer:coarse){ .pad{display:grid} }
 .auth{position:fixed;inset:0;z-index:10;background:rgba(8,5,18,.6);display:grid;place-items:center;padding:16px}
 .auth form{width:min(380px,100%);padding:22px;display:flex;flex-direction:column;gap:10px}
@@ -200,7 +206,7 @@ body.chat-min .sitbtn{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 .auth .err{color:var(--bad);font-size:12px;min-height:1em}
 .auth .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .auth .link{font:inherit;font-size:12px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
-@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chatbox{width:calc(100% - 210px);min-width:150px;height:220px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .chatbox .pill{display:none} .pad{left:auto;right:16px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .sitbtn,body.chat-min .sitbtn{left:auto;right:16px;bottom:calc(240px + env(safe-area-inset-bottom,0px))} }
+@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chatbox{width:calc(100% - 210px);min-width:150px;height:220px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .chatbox .pill{display:none} .pad{left:auto;right:16px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .actions,body.chat-min .actions{left:auto;right:16px;max-width:186px;bottom:calc(240px + env(safe-area-inset-bottom,0px))} .actions .vsep{display:none} }
 .findq{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
 .findq:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .rooms{gap:6px}
@@ -297,7 +303,16 @@ body.chat-min .sitbtn{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
     <ol class="chatlog" id="chat-log" aria-live="polite"></ol>
     <form class="chat" id="chat"><input id="chat-in" maxlength="80" placeholder="메시지 보내기 · Enter" autocomplete="off" aria-label="채팅 메시지"><button class="pill save" type="submit">보내기</button></form>
   </section>
-  <button class="chip sitbtn glass" id="sit">🪑 앉기 (E)</button>
+  <div class="actions glass" id="actions" role="toolbar" aria-label="캐릭터 동작">
+    <button class="chip" id="sit">🪑 앉기 (E)</button>
+    <span class="vsep"></span>
+    <button class="emo" data-emo="dance" title="춤추기 · 박자에 맞춰 춰요 (1)" aria-label="춤추기">💃</button>
+    <button class="emo" data-emo="wave" title="인사 (2)" aria-label="인사">👋</button>
+    <button class="emo" data-emo="clap" title="박수 (3)" aria-label="박수">👏</button>
+    <button class="emo" data-emo="jump" title="점프 (4)" aria-label="점프">🦘</button>
+    <button class="emo" data-emo="heart" title="하트 (5)" aria-label="하트">💗</button>
+    <button class="chip" id="tap" title="음악 박자에 맞춰 여러 번 누르면 춤 박자가 맞춰져요 (T)">♩ 90</button>
+  </div>
   <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
 </div>
 <div class="auth" id="auth" hidden><form class="glass" id="auth-form" novalidate>

@@ -157,15 +157,16 @@ function buildAvatar(o){
   const g=new THREE.Group(); g.position.set(...o.pos); g.rotation.y=o.rot||0; (o.parent||scene).add(g);
   const skin=mat(o.skin,{roughness:.6}), shirt=mat(o.shirt), pants=mat(o.pants), hair=mat(o.hair,{roughness:.7}), shoe=mat(o.shoes||'#ffffff');
   const sit=o.pose==='sit';
-  if(sit){ [-.17,.17].forEach(x=>{ const l=mesh(new THREE.CapsuleGeometry(.13,.42,6,12), pants, x,.15,.3, g); l.rotation.x=Math.PI/2; sph(.15, shoe, x,.12,.62, g); }); }
+  const root=new THREE.Group(); g.add(root); const rig=new THREE.Group(); root.add(rig);
+  if(sit){ [-.17,.17].forEach(x=>{ const l=mesh(new THREE.CapsuleGeometry(.13,.42,6,12), pants, x,.15,.3, root); l.rotation.x=Math.PI/2; sph(.15, shoe, x,.12,.62, root); }); }
   const legs=[];
-  if(!sit){ [-.17,.17].forEach(x=>{ const hip=new THREE.Group(); hip.position.set(x,.62,0); g.add(hip); mesh(new THREE.CapsuleGeometry(.13,.45,6,12), pants, 0,-.24,0, hip); sph(.16, shoe, 0,-.54,.06, hip); legs.push(hip); }); }
+  if(!sit){ [-.17,.17].forEach(x=>{ const hip=new THREE.Group(); hip.position.set(x,.62,0); root.add(hip); mesh(new THREE.CapsuleGeometry(.13,.45,6,12), pants, 0,-.24,0, hip); sph(.16, shoe, 0,-.54,.06, hip); legs.push(hip); }); }
   const by = sit ? .55 : .95;
-  mesh(new THREE.CapsuleGeometry(.36,.32,8,16), shirt, 0,by+.2,0, g);
-  mesh(new THREE.CapsuleGeometry(.1,.4,6,10), shirt, -.45,by+.18,0, g).rotation.z=.25;
-  const armR=mesh(new THREE.CapsuleGeometry(.1,.4,6,10), shirt, .45,by+.18,0, g); armR.rotation.z=-.25;
-  if(o.wave){ armR.rotation.z=-2.4; armR.position.set(.55,by+.55,0); }
-  const head=new THREE.Group(); head.position.set(0,by+.95,0); g.add(head);
+  mesh(new THREE.CapsuleGeometry(.36,.32,8,16), shirt, 0,by+.2,0, rig);
+  const arms=[-1,1].map(sx=>{ const sh=new THREE.Group(); sh.position.set(.45*sx,by+.4,0); sh.rotation.z=.25*sx; rig.add(sh);
+    mesh(new THREE.CapsuleGeometry(.1,.4,6,10), shirt, 0,-.22,0, sh); sph(.11, skin, 0,-.5,0, sh); return sh; });
+  if(o.wave) arms[1].rotation.z=2.4;
+  const head=new THREE.Group(); head.position.set(0,by+.95,0); rig.add(head);
   sph(.5, skin, 0,0,0, head);
   const st=o.style;
   if(st!=='beanie' && st!=='curly') mesh(new THREE.SphereGeometry(st==='short'?.52:.54,32,16,0,Math.PI*2,0,Math.PI*(st==='short'?.42:.52)), hair, 0,.04,-.03, head).rotation.x=st==='short'?-.35:-.25;
@@ -181,9 +182,39 @@ function buildAvatar(o){
     [-.56,.56].forEach(x=>{ cyl(.17,.17,.16, mat(o.phones), x,0,0, head).rotation.z=Math.PI/2; }); }
   const tag=label(o.name, o.tagBg, o.dot); tag.position.set(0,by+1.85+(st==='bun'||st==='spiky'?.15:0),0); g.add(tag);
   let bub=null; if(o.say){ bub=bubble(o.say); bub.position.set(.9,by+2.45,0); g.add(bub); }
-  return {g, head, by, bub, legs};
+  return {g, root, rig, head, by, bub, legs, arms};
 }
 function sayOn(a,text){ if(a.chat) a.g.remove(a.chat); const b=bubble(text.slice(0,40)); b.position.set(.9,a.by+2.45,0); a.g.add(b); a.chat=b; a.chatUntil=performance.now()+6000; }
+// ---------- emotes, timed to a shared beat clock ----------
+const tempo={bpm:90, origin:0};   // beat n happens at origin + n*60/bpm seconds (wall clock, so every visitor agrees)
+function beatPhase(){ return (Date.now()-tempo.origin)/1000*tempo.bpm/60; }
+const EMOTES={dance:{name:'춤추기', icon:'💃', dur:Infinity}, wave:{name:'인사', icon:'👋', dur:2600}, clap:{name:'박수', icon:'👏', dur:3200}, jump:{name:'점프', icon:'🦘', dur:900}, heart:{name:'하트', icon:'💗', dur:2400}};
+const heartTex=canvasTex(64,64,g=>{ g.fillStyle='#ff5c8f'; g.shadowColor='#fff'; g.shadowBlur=8; g.font='56px sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('♥',32,36); }).tex;
+function startEmote(a,type){ const now=performance.now();
+  if(type==='stop'||(type==='dance'&&a.emote&&a.emote.type==='dance')){ a.emote=null; return false; }
+  if(!EMOTES[type]) return false; a.emote={type, start:now, until:now+EMOTES[type].dur};
+  if(type==='heart'){ a.fx=a.fx||[]; for(let i=0;i<6;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:heartTex, transparent:true, depthWrite:false})); sp.scale.set(.7,.7,1); sp.renderOrder=12; sp.material.depthTest=false;
+      sp.userData={born:now+i*160, x:(Math.random()-.5)*1.2}; sp.position.set(sp.userData.x,a.by+1.6,0); sp.visible=false; a.g.add(sp); a.fx.push(sp); } }
+  return true; }
+function animateAvatar(a, ph, beat, now, dt){
+  const L=a.arms&&a.arms[0], Rr=a.arms&&a.arms[1]; if(!L) return;
+  const sit=a.o.pose==='sit'; let e=a.emote; if(e&&now>e.until){ a.emote=e=null; }
+  let rootY=0, rigY=0, sway=0, lz=.25, rz=-.25, lx=0, rx=0, headZ=playing?Math.sin(ph*Math.PI+a.phase)*.08:0;
+  const b=ph-Math.floor(ph), up=Math.sin(Math.PI*b);           // 0 on the beat, 1 halfway
+  if(e&&e.type==='dance'){ const side=Math.sin(Math.PI*ph);    // flips sign every beat
+    rigY=.07*up; if(!sit) rootY=.05*up; sway=.16*side; headZ=.22*side;
+    lz=.3+2.1*Math.max(0,side); rz=-(.3+2.1*Math.max(0,-side)); }
+  else if(e&&e.type==='wave'){ rz=-2.5+.35*Math.sin(now/90); }
+  else if(e&&e.type==='clap'){ lx=rx=-1.25; const open=.05+.55*up; lz=open; rz=-open; }
+  else if(e&&e.type==='jump'){ const u=Math.min(1,(now-e.start)/(e.until-e.start)); rootY=(sit?.25:1.1)*Math.sin(Math.PI*u); lz=2.6; rz=-2.6; }
+  else if(e&&e.type==='heart'){ lz=2.3; rz=-2.3; rigY=.03*up; }
+  const k=Math.min(1,dt*18); if(!Number.isFinite(a.root.position.y)) a.root.position.y=0;
+  a.root.position.y+=(rootY-a.root.position.y)*(e&&e.type==='jump'?1:k); a.rig.position.y+=(rigY-a.rig.position.y)*k; a.rig.rotation.z+=(sway-a.rig.rotation.z)*k;
+  L.rotation.z+=(-lz-L.rotation.z)*k; Rr.rotation.z+=(-rz-Rr.rotation.z)*k; L.rotation.x+=(lx-L.rotation.x)*k; Rr.rotation.x+=(rx-Rr.rotation.x)*k;
+  a.head.rotation.z+=(headZ-a.head.rotation.z)*k; a.head.position.y=a.by+.95+(playing&&!e?beat*.04:0);
+  if(a.fx&&a.fx.length){ a.fx=a.fx.filter(sp=>{ const age=(now-sp.userData.born)/1600; if(age>=1||sp.parent!==a.g){ sp.parent&&sp.parent.remove(sp); return false; }
+    sp.visible=age>0; if(age>0){ sp.position.set(sp.userData.x+Math.sin(age*9)*.12, a.by+1.6+age*1.6, 0); sp.material.opacity=1-age; } return true; }); } }
+
 function avatar(o){ const a={o, phase:Math.random()*6, ...buildAvatar(o)}; avatars.push(a); return a; }
 function rebuildAvatar(a){ if(a.chat) a.chat=null; a.g.parent&&a.g.parent.remove(a.g); const i=clickables.indexOf(a.g); if(i>=0) clickables.splice(i,1); Object.assign(a, buildAvatar(a.o)); if(a.onBuild) a.onBuild(a); }
 
@@ -373,7 +404,7 @@ let editing=false, selected=null, drag=null, snapshot=null;
 const hint=$('hint');
 function setHint(){ hint.innerHTML = editing
   ? '<span class="mode">꾸미기 모드</span><span><b>가구 드래그</b> 이동 <span class="long">· <kbd>R</kbd> 회전 · <kbd>Del</kbd> 치우기 · 벽·바닥 눌러 색 바꾸기</span></span>'
-  : '<b>WASD</b> 걷기 · <b>E</b> 앉기 · <b>Enter</b> 말하기 <span class="long">· 드래그 회전 · 스크롤 확대</span>'; }
+  : '<b>WASD</b> 걷기 · <b>E</b> 앉기 · <b>1~5</b> 감정표현 · <b>Enter</b> 말하기 <span class="long">· 드래그 회전 · 스크롤 확대</span>'; }
 setHint();
 const grid=new THREE.GridHelper(10,20,0xffffff,0xffffff); grid.position.y=.13; grid.material.transparent=true; grid.material.opacity=.18; grid.visible=false; scene.add(grid);
 const fpMat=new THREE.MeshBasicMaterial({color:0x3ddc97, transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide});
@@ -745,18 +776,21 @@ function joinRoomChannel(roomId){
   const ch=sb.channel('lr-room:'+roomId,{config:{presence:{key:rt.key}, broadcast:{self:false}}}); rt.ch=ch;
   ch.on('presence',{event:'sync'},()=>syncPeers(ch.presenceState()));
   ch.on('broadcast',{event:'mv'},({payload:m})=>{ const p=peers.get(m.k); if(!p) return; p.tx=m.x; p.ty=m.y; p.tz=m.z; p.tr=m.r; p.moving=m.m; if(m.p!==p.a.o.pose){ p.a.o.pose=m.p; p.a.o.pos=[m.x,m.y,m.z]; rebuildAvatar(p.a); } });
+  ch.on('broadcast',{event:'emo'},({payload:m})=>{ const p=peers.get(m.k); if(p) startEmote(p.a,m.t); });
+  ch.on('broadcast',{event:'bpm'},({payload:m})=>{ if(m.bpm>=50&&m.bpm<=200){ tempo.bpm=m.bpm; tempo.origin=m.origin; updateTapBtn(); } });
   ch.on('broadcast',{event:'say'},({payload:m})=>{ const p=peers.get(m.k); if(p) sayOn(p.a,m.text); chatLine('',(m.name||(p&&p.a.o.name)||'손님').replace(/ ★$/,''),String(m.text||'').slice(0,80)); });
   ch.on('broadcast',{event:'look'},({payload:m})=>{ const p=peers.get(m.k); if(p){ p.a.o={...p.a.o, ...m.av, name:m.name}; rebuildAvatar(p.a); } });
   ch.on('broadcast',{event:'dj'},({payload:m})=>{ if(view.isOwner) return; rt.dj={...m, recv:Date.now()}; followDj(); });
   ch.on('broadcast',{event:'pl'},()=>{ if(!view.isOwner&&view.host) loadPlaylists(view.host.id); });
   ch.on('broadcast',{event:'room'},()=>{ if(!view.isOwner&&view.host) reloadRoom(); });
   ch.subscribe(st=>{ if(st==='SUBSCRIBED'){ ch.track(myPresence()); sendMv(true); djSend(); } }); }
+function greetNewcomer(){ if(tempo.origin) rt.send('bpm',{bpm:tempo.bpm, origin:tempo.origin}); if(me.emote&&me.emote.type==='dance') rt.send('emo',{t:'dance'}); }
 function syncPeers(state){
   const keys=new Set(Object.keys(state).filter(k=>k!==rt.key));
   peers.forEach((p,k)=>{ if(!keys.has(k)){ chatLine('sys','',p.a.o.name.replace(/ ★$/,'')+'님이 나갔어요'); dropPeer(p); peers.delete(k); } });
   keys.forEach(k=>{ const info=state[k][0]||{}; if(peers.has(k)) return;
     const a=avatar({...ME_DEFAULT, ...(info.av||{}), name:(info.name||'손님')+(info.host?' ★':''), parent:scene, pose:'stand', pos:[0,0,3.6], rot:Math.PI, tagBg:info.host?'rgba(255,184,107,.9)':undefined});
-    peers.set(k,{a, tx:0, ty:0, tz:3.6, tr:Math.PI, moving:false, host:!!info.host}); chatLine('sys','',(info.name||'손님')+'님이 들어왔어요'); sendMv(true); });
+    peers.set(k,{a, tx:0, ty:0, tz:3.6, tr:Math.PI, moving:false, host:!!info.host}); chatLine('sys','',(info.name||'손님')+'님이 들어왔어요'); sendMv(true); greetNewcomer(); });
   view.hostHere=[...peers.values()].some(p=>p.host); if(hostA) hostA.g.visible=!view.hostHere;
   const n=peers.size+1; $('who').textContent = n>1 ? `${n}명 함께 듣는 중` : '지금은 혼자 듣는 중'; $('chat-who').textContent = n>1 ? `${n}명` : '혼자 듣는 중'; }
 function dropPeer(p){ p.a.g.parent&&p.a.g.parent.remove(p.a.g); const i=avatars.indexOf(p.a); if(i>=0) avatars.splice(i,1); }
@@ -775,6 +809,18 @@ let userTapped=false; addEventListener('pointerdown',()=>{ userTapped=true; },{o
 
 // chat
 $('chat-in').addEventListener('keydown',e=>{ if(e.key==='Escape') e.target.blur(); });
+// emote buttons + tap tempo
+function doEmote(type){ if(editing||dressing) return; const on=startEmote(me,type); rt.send('emo',{t:on?type:'stop'}); updateEmoteBtns(); }
+function updateEmoteBtns(){ document.querySelectorAll('[data-emo]').forEach(b=>b.setAttribute('aria-pressed', !!(me.emote&&me.emote.type===b.dataset.emo&&b.dataset.emo==='dance'))); }
+document.querySelectorAll('[data-emo]').forEach(b=>b.addEventListener('click',()=>doEmote(b.dataset.emo)));
+const taps=[];
+function tapTempo(){ const now=Date.now(); if(taps.length&&now-taps[taps.length-1]>2000) taps.length=0; taps.push(now); if(taps.length>8) taps.shift();
+  if(taps.length<3){ toast('음악 박자에 맞춰 T를 몇 번 더 눌러주세요'); return; }
+  const iv=(taps[taps.length-1]-taps[0])/(taps.length-1); const bpm=Math.max(50,Math.min(200,Math.round(60000/iv)));
+  tempo.bpm=bpm; tempo.origin=now; updateTapBtn(); rt.send('bpm',{bpm, origin:now}); }
+function updateTapBtn(){ const b=$('tap'); if(b) b.textContent='♩ '+tempo.bpm; }
+$('tap').addEventListener('click',tapTempo); updateTapBtn();
+
 // chat window: a running log next to the speech bubbles (live only; not stored on the server)
 let chatUnread=0;
 function chatLine(kind, who, text){ const log=$('chat-log'); const li=document.createElement('li'); li.className=kind;
@@ -794,6 +840,8 @@ const typing=e=>{ const t=e.target; return t&&(t.tagName==='INPUT'||t.tagName===
 addEventListener('keydown',e=>{ if(typing(e)||editing||dressing) return; const k=e.key.toLowerCase();
   if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){ walk.keys.add(k); e.preventDefault(); }
   if(k==='e'&&!e.repeat) toggleSit();
+  const ek=['dance','wave','clap','jump','heart'][+e.key-1]; if(ek&&!e.repeat) doEmote(ek);
+  if(k==='t'&&!e.repeat) tapTempo();
   if(k==='enter'&&!e.repeat){ e.preventDefault(); $('chat-in').focus(); } });
 addEventListener('keyup',e=>walk.keys.delete(e.key.toLowerCase()));
 addEventListener('blur',()=>walk.keys.clear());
@@ -822,6 +870,7 @@ function updateWalk(dt){
   if(want&&me.sitting){ if(!standUp()) return; }
   if(want&&controls.autoRotate) setSpin(false);
   walk.moving=!!want;
+  if(want&&me.emote&&me.emote.type==='dance'){ me.emote=null; rt.send('emo',{t:'stop'}); updateEmoteBtns(); }
   if(want){
     const fwd=tmpV.copy(controls.target).sub(camera.position); fwd.y=0; fwd.normalize(); const right=new THREE.Vector3(-fwd.z,0,fwd.x);
     const dir=new THREE.Vector3().addScaledVector(right,ix).addScaledVector(fwd,-iz).normalize(); const sp=3.2*dt;
@@ -1029,7 +1078,7 @@ function frame(now){
   if(tween){ tween.t=Math.min(1,tween.t+dt*1.4); const e=1-Math.pow(1-tween.t,3); camera.position.lerpVectors(tween.from,tween.to,e); controls.target.lerpVectors(tween.tf,tween.tt,e); if(tween.t>=1) tween=null; }
   controls.update();
   const p=camera.position; walls.forEach(w=>{ w.g.visible=!w.outside(p); });
-  const beat = playing ? Math.pow(Math.max(0,Math.sin(t*Math.PI*2*1.4)),8) : 0;
+  const ph=beatPhase(); const beat = playing ? Math.pow(Math.max(0,Math.cos(ph*Math.PI*2)),8) : 0;
   if(playing&&record) record.rotation.y -= dt*3.5;
   if(ytReady&&yt.getDuration&&yt.getDuration()>0) progress=Math.min(1,(yt.getCurrentTime()||0)/yt.getDuration()); else if(playing) progress=(progress+dt/225)%1;
   updateWalk(dt); updatePeers(dt);
@@ -1037,7 +1086,7 @@ function frame(now){
   avatars.forEach(a=>{ if(a.chat&&performance.now()>a.chatUntil){ a.g.remove(a.chat); a.chat=null; } });
   prog.style.width=(progress*100)+'%';
   speakers.forEach(s=>{ s.userData.kick=Math.max(0,(s.userData.kick||0)-dt*2); const k=1+beat*.06+s.userData.kick*.15; s.userData.cones.forEach(c=>c.scale.set(k,1,k)); });
-  avatars.forEach(a=>{ a.head.rotation.z = playing? Math.sin(t*Math.PI*1.4+a.phase)*.08 : 0; a.head.position.y=a.by+.95+(playing?beat*.04:0); if(a.bub) a.bub.position.y=a.by+2.45+Math.sin(t*2+a.phase)*.05; });
+  avatars.forEach(a=>{ animateAvatar(a, ph, beat, now, dt); if(a.bub) a.bub.position.y=a.by+2.45+Math.sin(t*2+a.phase)*.05; });
   notes.forEach((n,i)=>{ n.userData.t=(n.userData.t+dt*(playing?.12:0))%1; const u=n.userData.t; n.position.set((i%2?3:-3)+Math.sin(u*6+i)*.4, 3.2+u*2.8, -3.7+Math.cos(i)*.3); n.material.opacity=(playing&&!editing)?Math.sin(u*Math.PI):0; });
   bulbs.forEach((b,i)=>b.scale.setScalar(1+Math.sin(t*3+i)*.15));
   movables.forEach(g=>{ if(g.userData.type==='lamp'){ const on=!g.userData.off; if(g.userData.light) g.userData.light.intensity += ((on?1.6:0)-g.userData.light.intensity)*.15; g.userData.shade.material.emissiveIntensity=on?.9:.05; } });
