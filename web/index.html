@@ -217,6 +217,11 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 .rooms .who{flex:1;min-width:0}.rooms .who b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rooms .who small{color:var(--mute);font-size:12px}
 .rooms .tag{font-size:11px;color:var(--mute);white-space:nowrap}
 .rooms .here{color:var(--accent)}
+.stylebox{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;max-height:150px;overflow-y:auto}
+.stylesec b{display:block;font-size:12px;color:var(--mute);font-weight:500;margin-bottom:6px}
+.stylesec .opts button{padding:6px 10px;font-size:12px}
+.pill:disabled{opacity:.35;cursor:default}
+@media (max-width:760px){ .stylebox{grid-template-columns:1fr} }
 </style>
 </head><body>
 
@@ -269,10 +274,11 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
       <button class="btn ghost" id="pl-open" aria-label="플레이리스트" title="플레이리스트">☰</button>
     </div>
     <div class="drawer glass" id="drawer" hidden>
-      <div class="dh"><div class="dtabs" role="tablist"><button role="tab" id="tab-floor" aria-selected="true">바닥 가구</button><button role="tab" id="tab-wall" aria-selected="false">벽 장식</button></div><span id="dsub">누르면 방에 나타나요 · 가구를 눌러 색 바꾸기 · 벽과 바닥도 눌러보세요</span>
-        <div class="acts"><button class="pill" id="cancel">취소</button><button class="pill save" id="save">저장하기</button></div></div>
+      <div class="dh"><div class="dtabs" role="tablist"><button role="tab" id="tab-floor" aria-selected="true">바닥 가구</button><button role="tab" id="tab-wall" aria-selected="false">벽 장식</button><button role="tab" id="tab-style" aria-selected="false">방 스타일</button></div><span id="dsub">누르면 방에 나타나요 · 가구를 눌러 색 바꾸기 · 벽과 바닥도 눌러보세요</span>
+        <div class="acts"><button class="pill" id="undo" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기" disabled>↶</button><button class="pill" id="redo" title="다시 하기 (Ctrl+Shift+Z)" aria-label="다시 하기" disabled>↷</button><button class="pill" id="cancel">취소</button><button class="pill save" id="save">저장하기</button></div></div>
       <div class="items" id="items"></div>
       <div class="items" id="items-wall" hidden></div>
+      <div class="stylebox" id="items-style" hidden></div>
     </div>
   </div>
 </div>
@@ -293,6 +299,7 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
   <label class="sw custom" title="직접 고르기"><input type="color" id="custom" value="#ff8ad1" aria-label="색 직접 고르기"></label>
   <button id="photo" hidden>🖼 사진 넣기</button>
   <div class="sizerow" id="sizeRow" hidden><span>크기</span><label>가로 <input type="range" id="sz-w" min="0.5" max="3.6" step="0.1"></label><label>세로 <input type="range" id="sz-h" min="0.5" max="3.6" step="0.1"></label><output id="sz-out"></output></div>
+  <button id="dup" title="복제 (Ctrl+D)">⧉ 복제</button>
   <button class="del" id="del" title="치우기 (Del)">✕ 치우기</button>
 </div>
 <input type="file" id="photoInput" accept="image/*" hidden>
