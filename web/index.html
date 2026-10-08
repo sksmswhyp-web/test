@@ -217,10 +217,7 @@ body.chat-min .chatlog{display:none}
 body.chat-min #chat-min{transform:rotate(180deg)}
 .chat input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
 .chat input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-body.editing .chatbox,body.dressing .chatbox,body.editing .pad,body.dressing .pad,body.editing .visit,body.dressing .visit{display:none}
-.pad{position:absolute;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:none;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:6px;padding:8px}
-.pad button{font:inherit;font-size:18px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--ink);touch-action:none}
-.pad .up{grid-column:2}
+body.editing .chatbox,body.dressing .chatbox,body.editing .visit,body.dressing .visit{display:none}
 .actions{position:absolute;left:16px;bottom:calc(318px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 32px)}
 .actions .chip{color:var(--ink);padding:8px 10px}
 .actions .vsep{width:1px;height:24px;background:var(--line);margin:0 2px}
@@ -230,7 +227,6 @@ body.editing .chatbox,body.dressing .chatbox,body.editing .pad,body.dressing .pa
 #tap{font-variant-numeric:tabular-nums}
 body.editing .actions,body.dressing .actions{display:none}
 body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
-@media (pointer:coarse){ .pad{display:grid} }
 .auth{position:fixed;inset:0;z-index:10;background:rgba(8,5,18,.6);display:grid;place-items:center;padding:16px}
 .auth form{width:min(380px,100%);padding:22px;display:flex;flex-direction:column;gap:10px}
 .auth h2{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:24px}
@@ -243,7 +239,7 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 .auth .gbtn:hover{background:#f1f1f4}.auth .gbtn:disabled{opacity:.6;cursor:wait}
 .auth .or{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute)}.auth .or::before,.auth .or::after{content:"";flex:1;height:1px;background:var(--line)}
 .auth .link{font:inherit;font-size:12px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
-@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chatbox{width:calc(100% - 210px);min-width:150px;height:220px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .chatbox .pill{display:none} .pad{left:auto;right:16px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .actions,body.chat-min .actions{left:auto;right:16px;max-width:186px;bottom:calc(240px + env(safe-area-inset-bottom,0px))} .actions .vsep{display:none} }
+@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chatbox{width:calc(100% - 210px);min-width:150px;height:220px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .chatbox .pill{display:none} .actions,body.chat-min .actions{left:auto;right:16px;max-width:186px;bottom:calc(240px + env(safe-area-inset-bottom,0px))} .actions .vsep{display:none} }
 .findq{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
 .findq:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .rooms{gap:6px}
@@ -278,7 +274,6 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 /* ---------- phones ---------- */
 .ui{z-index:3}
 button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.pad [data-key="a"]{grid-column:1;grid-row:2}.pad [data-key="s"]{grid-column:2;grid-row:2}.pad [data-key="d"]{grid-column:3;grid-row:2}
 .info span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:760px){
   input,select,textarea{font-size:16px!important}   /* iOS zooms the page into smaller inputs */
@@ -313,9 +308,6 @@ button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-acti
   body.chat-min .chatbox header{gap:6px}
   body.chat-min .chatbox header b{font-size:15px}
   .chatbox .pill{display:inline-block}
-  .pad{left:auto;right:8px;bottom:calc(136px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px);gap:4px;padding:6px}
-  .pad button{font-size:15px}
-  body:not(.chat-min) .pad{display:none}
   /* panels become bottom sheets over everything */
   .panel{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:78dvh;z-index:6;border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -12px 40px rgba(0,0,0,.45)}
   body:has(.panel:not([hidden])) .ui2,body:has(.panel:not([hidden])) .bottom{visibility:hidden}
@@ -334,7 +326,6 @@ button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-acti
   .petmenu{max-width:calc(100vw - 16px)}
 }
 @media (max-width:1560px){ .hint .long{display:none} }
-@media (max-width:760px) and (pointer:coarse){ .pad{display:grid} body:not(.chat-min) .pad{display:none} }
 @media (max-height:500px) and (orientation:landscape){
   .brand span{display:none}
   .brand{padding:6px 10px 6px 6px}.brand .lg{width:26px;height:26px;font-size:14px}.brand b{font-size:15px}
@@ -347,7 +338,6 @@ button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-acti
   .emo{width:36px;height:36px}
   .chatbox,body.chat-min .chatbox{left:calc(8px + env(safe-area-inset-left,0px));width:min(340px,44%);bottom:calc(60px + env(safe-area-inset-bottom,0px));height:calc(100dvh - 140px)}
   body.chat-min .chatbox{height:auto;width:auto}
-  .pad{bottom:calc(64px + env(safe-area-inset-bottom,0px))}
   .panel{left:auto;right:0;top:0;bottom:0;width:min(420px,60%);max-height:none;border-radius:20px 0 0 20px}
   .dress{left:auto;top:0;width:min(380px,55%);height:auto;border-radius:20px 0 0 20px}
   body.editing .hint{display:none}
@@ -473,7 +463,6 @@ button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-acti
     <button class="emo" data-emo="heart" title="하트 (5)" aria-label="하트">💗</button>
     <button class="chip" id="tap" title="음악 박자에 맞춰 여러 번 누르면 춤 박자가 맞춰져요 (T)">♩ 90</button>
   </div>
-  <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
 </div>
 <div class="auth" id="auth" hidden><form class="glass" id="auth-form" novalidate>
   <div class="row"><h2 id="auth-title">로그인</h2><button type="button" class="btn ghost" id="auth-x" aria-label="닫기">✕</button></div>
