@@ -233,6 +233,30 @@ function avatar(o){ const a={o, phase:Math.random()*6, ...buildAvatar(o)}; avata
 function rebuildAvatar(a){ if(a.chat) a.chat=null; a.g.parent&&a.g.parent.remove(a.g); const i=clickables.indexOf(a.g); if(i>=0) clickables.splice(i,1); Object.assign(a, buildAvatar(a.o)); if(a.onBuild) a.onBuild(a); }
 
 
+// ---------- pets ----------
+const PET_DEFAULT_NAME={cat:'나비', dog:'콩이'};
+function buildPet(g, kind){
+  const cat=kind==='cat', fur=M(cat?'catFur':'dogFur', cat?'#f2a65a':'#c8915a', {roughness:.95}), accent=M(cat?'catPink':'dogCollar', cat?'#ff9fb2':'#e63946'), dark=M('petEye','#1a1210');
+  const rig=new THREE.Group(); g.add(rig);
+  const body=sph(.3, fur, 0,.42,0, rig); body.scale.set(cat?.95:1.05,.8,cat?1.4:1.5); body.userData.paint='main';
+  const legs=[[-.15,.22],[.15,.22],[-.15,-.24],[.15,-.24]].map(([x,z])=>{ const hip=new THREE.Group(); hip.position.set(x,.36,z); rig.add(hip);
+    const l=mesh(new THREE.CapsuleGeometry(.065,.2,4,8), fur, 0,-.17,0, hip); l.userData.paint='main'; sph(.075, fur, 0,-.3,.02, hip).userData.paint='main'; return hip; });
+  const head=new THREE.Group(); head.position.set(0,.68,.38); rig.add(head);
+  sph(cat?.24:.26, fur, 0,0,0, head).userData.paint='main';
+  if(cat){ [-.12,.12].forEach(x=>{ mesh(new THREE.ConeGeometry(.085,.17,4), fur, x,.22,-.02, head).userData.paint='main'; mesh(new THREE.ConeGeometry(.045,.09,4), accent, x,.21,.02, head).userData.paint='sub'; }); sph(.035, accent, 0,-.03,.24, head).userData.paint='sub'; }
+  else { const snout=sph(.13, fur, 0,-.06,.22, head); snout.scale.set(1,.8,1.1); snout.userData.paint='main'; sph(.045, dark, 0,-.02,.35, head);
+    [-.2,.2].forEach(x=>{ const ear=sph(.1, M('dogEar','#8a5a3b'), x,.06,-.04, head); ear.scale.set(.6,1.5,.9); ear.rotation.z=x>0?-.4:.4; ear.userData.paint='sub'; });
+    const collar=new THREE.Mesh(new THREE.TorusGeometry(.2,.035,8,20), accent); collar.rotation.x=Math.PI/2; collar.position.set(0,.6,.3); collar.userData.paint='sub'; rig.add(collar); }
+  [-.09,.09].forEach(x=>sph(.034, dark, x,.05,cat?.21:.22, head));
+  const tail=new THREE.Group(); tail.position.set(0,.5,-.4); rig.add(tail); const tl=mesh(new THREE.CapsuleGeometry(cat?.05:.06,cat?.48:.3,6,10), fur, 0,.22,-.04, tail); tl.rotation.x=cat?-.45:-.9; tl.userData.paint='main';
+  g.userData.pet={kind, rig, head, tail, legs, body, mode:null};
+  g.userData.petName=PET_DEFAULT_NAME[kind];
+  clickable(g, PET_DEFAULT_NAME[kind], ()=>openPetMenu(g));
+}
+function setPetName(g, name){ g.userData.petName=(name||'').trim().slice(0,12)||PET_DEFAULT_NAME[g.userData.pet.kind];
+  if(g.userData.nameTag) g.remove(g.userData.nameTag); const tag=label(g.userData.petName,'rgba(20,14,40,.75)','#ffb86b'); tag.scale.multiplyScalar(.8); tag.position.set(0,1.25,0); g.add(tag); g.userData.nameTag=tag;
+  g.traverse(o=>{ if(o.isMesh&&o.userData.hit) o.userData.hit.name=g.userData.petName+' · 눌러서 놀아주기'; }); }
+
 // ---------- furniture catalog (each item: group with origin at floor centre; fp = footprint w(x) × d(z)) ----------
 const speakers=[]; let record=null;
 const CATALOG = {
@@ -339,15 +363,8 @@ const CATALOG = {
     rbox(2.0,.32,3.1,.12, M('mattress','#f3efe6'), 0,.62,.05, g);
     rbox(1.6,.2,.55,.1, M('pillow','#ffffff'), 0,.85,-1.15, g);
     rbox(2.06,.12,2.1,.08, M('blanket2','#9b7bff'), 0,.82,.5, g).userData.paint='sub'; }},
-  cat:{name:'고양이', fp:[.7,.9], build(g){
-    const fur=M('catFur','#f2a65a',{roughness:.95}), pink=M('catPink','#ff9fb2');
-    const body=sph(.32, fur, 0,.3,0, g); body.scale.set(1,.85,1.35); body.userData.paint='main';
-    const head=sph(.25, fur, 0,.55,.38, g); head.userData.paint='main';
-    [-.13,.13].forEach(x=>{ const e=mesh(new THREE.ConeGeometry(.09,.18,4), fur, x,.78,.36, g); e.userData.paint='main'; mesh(new THREE.ConeGeometry(.05,.1,4), pink, x,.77,.4, g).userData.paint='sub';
-      sph(.035, M('catEye','#1a1210'), x*.7,.6,.6, g); });
-    sph(.04, pink, 0,.53,.62, g).userData.paint='sub';
-    const tail=new THREE.Group(); tail.position.set(0,.32,-.42); g.add(tail); const tl=mesh(new THREE.CapsuleGeometry(.06,.5,6,10), fur, 0,.25,-.05, tail); tl.rotation.x=-.5; tl.userData.paint='main';
-    g.userData.anim={tail, body}; clickable(g,'고양이 · 쓰다듬기', ()=>{ g.userData.purr=performance.now(); }); }},
+  cat:{name:'고양이', fp:[.7,.9], pet:'cat', build(g){ buildPet(g,'cat'); }},
+  dog:{name:'강아지', fp:[.8,1.0], pet:'dog', build(g){ buildPet(g,'dog'); }},
   moodLamp:{name:'무드등', fp:[.6,.6], build(g){
     cyl(.22,.26,.12, M('moodBase','#2a1f30'), 0,.06,0, g).userData.paint='sub';
     const orb=sph(.26, new THREE.MeshStandardMaterial({color:'#ff8ad1', emissive:new THREE.Color('#ff8ad1'), emissiveIntensity:1.2, roughness:.3}), 0,.38,0, g);
@@ -357,7 +374,7 @@ const CATALOG = {
     rbox(.82,.12,.82,.06, M('stoolTop','#2a1f3a'), 0,.72,0, g).userData.paint='sub';
   }},
 };
-const INVENTORY = ['rugRound','rugSquare','bed','desk','chair','cat','moodLamp','boombox','guitar','ampstack','stool','bean','plant','lamp','speaker','table','shelf'];
+const INVENTORY = ['rugRound','rugSquare','bed','desk','chair','cat','dog','moodLamp','boombox','guitar','ampstack','stool','bean','plant','lamp','speaker','table','shelf'];
 // ---------- wall decor (items hang on a wall group; local x = along the wall, y = height, +z = into the room) ----------
 function photoPlaceholder(w,h){ const W=512, Hh=Math.round(512*h/w); return canvasTex(W,Hh,(g)=>{ const gr=g.createLinearGradient(0,0,W,Hh); gr.addColorStop(0,'#3d2e66'); gr.addColorStop(1,'#c0608e'); g.fillStyle=gr; g.fillRect(0,0,W,Hh);
   g.strokeStyle='rgba(255,255,255,.55)'; g.lineWidth=6; g.setLineDash([18,12]); g.strokeRect(24,24,W-48,Hh-48); g.setLineDash([]);
@@ -390,14 +407,16 @@ function sizeOf(g){ return g.userData.size||WALLCAT[g.userData.type].size; }
 function makeWall(type, wg, u, v){ const g=new THREE.Group(); g.userData={type, id:++itemSeq, movable:true, wall:true}; WALLCAT[type].build(g);
   g.position.set(u,v,T/2); wg.add(g); movables.push(g); return g; }
 const PALETTE = ['#e07a8b','#ffb86b','#ffd166','#3fa36b','#4cc9f0','#9b7bff','#e63946','#8a5a3b','#2c2c33','#f3efe6'];
-const PARTS = {rugRound:['바깥','안쪽'], rugSquare:['줄무늬','바탕'], desk:['상판','다리'], chair:['본체','다리'], bed:['프레임','이불'], cat:['털','귀·코'], moodLamp:['빛','받침'], console:['본체','문'], sofa:['본체','쿠션'], table:['상판','다리'], lamp:['갓','기둥'], plant:['화분','잎'], boombox:['본체','손잡이'], guitar:['바디','넥'], ampstack:['본체','장식'], stool:['본체','방석']};
+const PARTS = {rugRound:['바깥','안쪽'], rugSquare:['줄무늬','바탕'], desk:['상판','다리'], chair:['본체','다리'], bed:['프레임','이불'], cat:['털','귀·코'], dog:['털','귀·목줄'], moodLamp:['빛','받침'], console:['본체','문'], sofa:['본체','쿠션'], table:['상판','다리'], lamp:['갓','기둥'], plant:['화분','잎'], boombox:['본체','손잡이'], guitar:['바디','넥'], ampstack:['본체','장식'], stool:['본체','방석']};
 const SURF = {wall:{name:'벽지', pal:['#4b3a7c','#3b5a7c','#2f5d50','#7c3a4b','#3c3a42','#e9e2d6','#f2d7c4','#c9d6e8','#1e1b26','#a8714a']},
               floor:{name:'바닥', pal:['#c48552','#8a5a3b','#e0c39a','#55505c','#2e2a2a','#d9d2c5','#7c9a8a','#9b7bff','#e07a8b','#3a3550']}};
 
 const movables=[]; let itemSeq=0;
+function newPetId(){ return Math.random().toString(36).slice(2,10); }
 function make(type, x, z, rot=0, opt={}){
   const g=new THREE.Group(); g.userData={type, id:++itemSeq, movable:true}; CATALOG[type].build(g, opt);
   g.position.set(x,0,z); g.rotation.y=rot; scene.add(g); movables.push(g);
+  if(g.userData.pet){ g.userData.pid=opt.pid||newPetId(); g.userData.home=g.position.clone(); g.userData.homeRot=rot; setPetName(g, opt.name); }
   if(g.userData.cones) speakers.push(g);
   return g;
 }
@@ -663,14 +682,14 @@ function seatAvatars(){ const seat=movables.find(g=>g.userData.seat==='me');
 function avatarData(o){ const {parent,pos,rot,pose,wave,say,tagBg,dot,...rest}=o; return rest; }
 function serializeRoom(){ const hex=c=>'#'+c.getHexString();
   return { v:2,
-    floor: movables.filter(g=>!g.userData.wall).map(g=>({t:g.userData.type, x:+g.position.x.toFixed(2), z:+g.position.z.toFixed(2), r:+g.rotation.y.toFixed(4), c:g.userData.colors||null, seat:g.userData.seat||null, l:!!g.userData.light})),
+    floor: movables.filter(g=>!g.userData.wall).map(g=>{ const P=(g.userData.pet&&!editing&&g.userData.home)||g.position, ry=(g.userData.pet&&!editing&&g.userData.homeRot!=null)?g.userData.homeRot:g.rotation.y; return {t:g.userData.type, x:+P.x.toFixed(2), z:+P.z.toFixed(2), r:+ry.toFixed(4), pid:g.userData.pid||undefined, n:g.userData.pet?g.userData.petName:undefined, c:g.userData.colors||null, seat:g.userData.seat||null, l:!!g.userData.light}; }),
     wall: movables.filter(g=>g.userData.wall).map(g=>({t:g.userData.type, w:WALLS.indexOf(g.parent), u:+g.position.x.toFixed(2), v:+g.position.y.toFixed(2), s:g.userData.size||null, c:g.userData.colors||null, p:g.userData.photoId||null})),
     surf:{wall:hex(mats.wallA.color), floor:hex(floorMat.color), ...roomStyle} }; }
 function applyRoom(d){ if(!d||!Array.isArray(d.floor)) return; select(null);
   const prevSeat=me.sitting&&movables.includes(me.sitting)?{t:me.sitting.userData.type, x:me.sitting.position.x, z:me.sitting.position.z, hint:me.g.getWorldPosition(new THREE.Vector3())}:null;
   movables.forEach(g=>g.parent&&g.parent.remove(g)); movables.length=0; speakers.length=0; record=null;
   if((d.v||1)<2&&!d.floor.some(it=>/^rug/.test(it.t))) make('rugRound', .3, .7);   // rooms saved before rugs were movable
-  d.floor.forEach(it=>{ if(!CATALOG[it.t]) return; const g=make(it.t, it.x, it.z, it.r, {light:it.l}); if(it.seat) g.userData.seat=it.seat;
+  d.floor.forEach(it=>{ if(!CATALOG[it.t]) return; const g=make(it.t, it.x, it.z, it.r, {light:it.l, pid:it.pid, name:it.n}); if(it.seat) g.userData.seat=it.seat;
     if(it.c){ if(it.c.main) paint(g,it.c.main,'main'); if(it.c.sub) paint(g,it.c.sub,'sub'); } });
   d.wall.forEach(it=>{ if(!WALLCAT[it.t]||!WALLS[it.w]) return; const g=makeWall(it.t, WALLS[it.w], it.u, it.v);
     if(it.s&&g.userData.photo) resizeFrame(g,it.s[0],it.s[1]);
@@ -679,10 +698,10 @@ function applyRoom(d){ if(!d||!Array.isArray(d.floor)) return; select(null);
   if(d.surf){ paintSurface('wall',d.surf.wall); paintSurface('floor',d.surf.floor); }
   const st={}; ['wallPat','floorPat','view','mood'].forEach(k=>{ if(d.surf&&d.surf[k]) st[k]=d.surf[k]; }); applyStyle({wallPat:'plain', floorPat:'wood', view:'night', mood:'cozy', ...st});
   const again=prevSeat&&movables.find(g=>g.userData.type===prevSeat.t&&Math.abs(g.position.x-prevSeat.x)<.01&&Math.abs(g.position.z-prevSeat.z)<.01);
-  seatAvatars(); if(again&&me.sitting!==again) sitOn(me,again,prevSeat.hint); }
+  layoutSig++; seatAvatars(); if(again&&me.sitting!==again) sitOn(me,again,prevSeat.hint); }
 function takeSnapshot(){ snapshot=serializeRoom(); }
 function restore(){ applyRoom(snapshot); }
-function setEditing(on){ editing=on; tip.classList.remove('show'); if(!on&&pendingRoom){ const d=pendingRoom; pendingRoom=null; setTimeout(()=>{ if(!editing&&!dressing&&JSON.stringify(d)===lastRoomJSON) applyRoom(d); },0); } document.body.classList.toggle('editing',on); $('drawer').hidden=!on; $('player').hidden=on; grid.visible=on; document.querySelector('.themes').hidden=on;
+function setEditing(on){ petsForEdit(on); editing=on; tip.classList.remove('show'); if(!on&&pendingRoom){ const d=pendingRoom; pendingRoom=null; setTimeout(()=>{ if(!editing&&!dressing&&JSON.stringify(d)===lastRoomJSON) applyRoom(d); },0); } document.body.classList.toggle('editing',on); $('drawer').hidden=!on; $('player').hidden=on; grid.visible=on; document.querySelector('.themes').hidden=on;
   avatars.forEach(a=>a.bub&&(a.bub.visible=!on)); $('pl').hidden=true; if(!on) select(null); setHint();
   if(on){ setSpin(false); takeSnapshot(); resetHistory(); goTo(new THREE.Vector3(13,17,13)); } }
 $('edit').addEventListener('click',()=>setEditing(true));
@@ -893,6 +912,8 @@ function joinRoomChannel(roomId){
   const ch=sb.channel('lr-room:'+roomId,{config:{presence:{key:rt.key}, broadcast:{self:false}}}); rt.ch=ch;
   ch.on('presence',{event:'sync'},()=>syncPeers(ch.presenceState()));
   ch.on('broadcast',{event:'mv'},({payload:m})=>{ const p=peers.get(m.k); if(!p) return; p.tx=m.x; p.ty=m.y; p.tz=m.z; p.tr=m.r; p.moving=m.m; if(m.p!==p.a.o.pose){ p.a.o.pose=m.p; p.a.o.pos=[m.x,m.y,m.z]; rebuildAvatar(p.a); } });
+  ch.on('broadcast',{event:'gb'},()=>loadGuestbook());
+  ch.on('broadcast',{event:'pet'},({payload:m})=>{ const g=movables.find(o=>o.userData.pid===m.pid); if(g) petCmd(g,m.c,true); });
   ch.on('broadcast',{event:'emo'},({payload:m})=>{ const p=peers.get(m.k); if(p) startEmote(p.a,m.t); });
   ch.on('broadcast',{event:'bpm'},({payload:m})=>{ if(m.bpm>=50&&m.bpm<=200){ tempo.bpm=m.bpm; tempo.origin=m.origin; updateTapBtn(); } });
   ch.on('broadcast',{event:'say'},({payload:m})=>{ const p=peers.get(m.k); if(p) sayOn(p.a,m.text); chatLine('',(m.name||(p&&p.a.o.name)||'손님').replace(/ ★$/,''),String(m.text||'').slice(0,80)); });
@@ -967,7 +988,7 @@ document.querySelectorAll('[data-key]').forEach(b=>{ const k=b.dataset.key;
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>walk.keys.delete(k))); });
 $('sit').addEventListener('click',()=>toggleSit());
 function blocked(x,z){ const R=.32; if(Math.abs(x)>INNER-R||Math.abs(z)>INNER-R) return true;
-  return movables.some(g=>{ if(g.userData.wall||CATALOG[g.userData.type].flat) return false; const f=footprint(g); return x>f.x0-R&&x<f.x1+R&&z>f.z0-R&&z<f.z1+R; }); }
+  return movables.some(g=>{ if(g.userData.wall||CATALOG[g.userData.type].flat||g.userData.pet) return false; const f=footprint(g); return x>f.x0-R&&x<f.x1+R&&z>f.z0-R&&z<f.z1+R; }); }
 function standUp(){ const w=new THREE.Vector3(); me.g.getWorldPosition(w); const item=me.sitting; const c=item?item.position:w;
   for(let r=1;r<4;r+=.25) for(let a=0;a<16;a++){ const ang=a/16*Math.PI*2+Math.PI/2, x=c.x+Math.sin(ang)*r, z=c.z+Math.cos(ang)*r; if(!blocked(x,z)){ standAt(me,x,z,ang); walkedOff=true; sendMv(true); return true; } }
   return false; }
@@ -1052,8 +1073,9 @@ function renderHeader(){
       [['public','🌐 누구나 구경'],['friends','👥 친구만'],['private','🔒 나만']].forEach(([v,n])=>{ const o=document.createElement('option'); o.value=v; o.textContent=n; if(view.room.visibility===v) o.selected=true; s.appendChild(o); });
       s.addEventListener('change',async()=>{ const r=await sb.from('lr_rooms').update({visibility:s.value}).eq('id',view.room.id); toast(r.error?'바꾸지 못했어요':'공개 범위를 바꿨어요'); if(!r.error) view.room.visibility=s.value; });
       V.appendChild(s);
+      gbButton(V);
       const c=document.createElement('button'); c.className='chip'; c.textContent='🔗 내 방 링크 복사'; c.addEventListener('click',()=>{ const url=location.origin+location.pathname+'#/@'+h.handle; (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('링크를 복사했어요 · 친구에게 보내보세요')).catch(()=>toast(url)); }); V.appendChild(c); }
-  else if(!view.demo){ const f=document.createElement('button'); f.className='chip'; f.id='follow'; V.appendChild(f); const l=document.createElement('button'); l.className='chip'; l.id='like'; V.appendChild(l); refreshSocial(); } }
+  else if(!view.demo){ const f=document.createElement('button'); f.className='chip'; f.id='follow'; V.appendChild(f); const l=document.createElement('button'); l.className='chip'; l.id='like'; V.appendChild(l); gbButton(V); refreshSocial(); } }
 async function refreshSocial(){ const f=$('follow'), l=$('like'); if(!f) return; const h=view.host;
   const [fo, likes, mine]=await Promise.all([ uid()?sb.from('lr_follows').select('follower_id').eq('follower_id',uid()).eq('followee_id',h.id):Promise.resolve({data:[]}),
     sb.from('lr_room_likes').select('user_id',{count:'exact',head:true}).eq('room_id',view.room.id),
@@ -1062,7 +1084,7 @@ async function refreshSocial(){ const f=$('follow'), l=$('like'); if(!f) return;
   f.textContent=following?'✓ 팔로잉':'＋ 팔로우'; f.onclick=async()=>{ if(!uid()) return openAuth('login'); const q=following?sb.from('lr_follows').delete().eq('follower_id',uid()).eq('followee_id',h.id):sb.from('lr_follows').insert({follower_id:uid(), followee_id:h.id}); const r=await q; if(r.error) toast('잠시 후 다시 시도해주세요'); refreshSocial(); };
   l.textContent=(liked?'♥ ':'♡ ')+(likes.count||0); l.onclick=async()=>{ if(!uid()) return openAuth('login'); const q=liked?sb.from('lr_room_likes').delete().eq('room_id',view.room.id).eq('user_id',uid()):sb.from('lr_room_likes').insert({room_id:view.room.id, user_id:uid()}); const r=await q; if(r.error) toast('잠시 후 다시 시도해주세요'); refreshSocial(); }; }
 function go(handle){ location.hash='#/@'+handle; }
-async function openRoom(handle){
+async function openRoom(handle){ $('gb').hidden=true; closePetMenu();
   const pr=await sb.from('lr_profiles').select('id,handle,display_name,avatar').eq('handle',handle.toLowerCase()).maybeSingle();
   if(pr.error||!pr.data){ toast('@'+handle+' 방을 찾을 수 없어요'); return openDemo(); }
   const rr=await sb.from('lr_rooms').select('id,owner_id,layout,visibility,featured_playlist_id').eq('owner_id',pr.data.id).maybeSingle();
@@ -1115,6 +1137,101 @@ $('auth-form').addEventListener('submit',async e=>{ e.preventDefault(); const mo
   addEventListener('hashchange',route); await route();
 })();
 
+
+
+// ---------- pet life: wandering everyone sees the same way, plus sit / feed / pet ----------
+// Each pet follows a schedule computed from the wall clock and its id, so every visitor's pet walks the same path
+// without streaming positions. Commands (sit, feed, pet) are broadcast and briefly override the schedule.
+const PET_SLOT=7000, PET_CHAIN=16, PET_SPEED=.9;
+function rng(seed){ let a=seed>>>0; return ()=>{ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hashStr(str){ let h=2166136261; for(const c of str) h=Math.imul(h^c.charCodeAt(0),16777619); return h>>>0; }
+function petBlocked(g,x,z){ const R=.35; if(Math.abs(x)>INNER-R||Math.abs(z)>INNER-R) return true;
+  return movables.some(o=>{ if(o===g||o.userData.wall||o.userData.pet||CATALOG[o.userData.type].flat) return false; const f=footprint(o, o.userData.home||o.position); return x>f.x0-R&&x<f.x1+R&&z>f.z0-R&&z<f.z1+R; }); }
+function clearPath(g,a,b){ const d=Math.hypot(b.x-a.x,b.z-a.z), n=Math.ceil(d/.25); for(let i=1;i<=n;i++){ const t=i/n; if(petBlocked(g,a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t)) return false; } return true; }
+function petSchedule(g, nowMs){ const P=g.userData; const k=Math.floor(nowMs/PET_SLOT);
+  if(!P.sched||P.sched.k!==k||P.sched.layout!==layoutSig){ const base=k-(((k%PET_CHAIN)+PET_CHAIN)%PET_CHAIN); let pos={x:P.home.x, z:P.home.z}, from=pos, to=pos;
+    for(let j=base;j<=k;j++){ from=pos; if(j-base===PET_CHAIN-1){ to={x:P.home.x, z:P.home.z}; if(!clearPath(g,from,to)) to=from; }
+      else { const r=rng(hashStr(P.pid)+j*7919); to=from; if(r()<.25){ /* nap: stay put this slot */ } else for(let tries=0;tries<10;tries++){ const ang=r()*Math.PI*2, dist=1+r()*2.6; const c={x:from.x+Math.cos(ang)*dist, z:from.z+Math.sin(ang)*dist}; if(!petBlocked(g,c.x,c.z)&&clearPath(g,from,c)){ to=c; break; } } }
+      pos=to; }
+    P.sched={k, from, to, layout:layoutSig}; }
+  const S=P.sched, el=(nowMs-k*PET_SLOT)/1000, d=Math.hypot(S.to.x-S.from.x,S.to.z-S.from.z), u=d?Math.min(1,el/(d/PET_SPEED)):1;
+  return {x:S.from.x+(S.to.x-S.from.x)*u, z:S.from.z+(S.to.z-S.from.z)*u}; }
+let layoutSig=0; // bumps when furniture changes so schedules are recomputed
+const bowls=[];
+function petCmd(g, type, remote){ const P=g.userData.pet; const now=performance.now();
+  const dur={sit:9000, eat:6500, pet:3000}[type]; if(!dur) return; P.mode={type, start:now, until:now+dur};
+  if(type==='eat'){ const f=new THREE.Vector3(0,0,.75).applyAxisAngle(new THREE.Vector3(0,1,0),g.rotation.y).add(g.position);
+    const bowl=new THREE.Group(); bowl.position.set(f.x,0,f.z); scene.add(bowl);
+    cyl(.24,.18,.12, M('bowl','#4cc9f0'), 0,.15,0, bowl); const food=cyl(.2,.2,.04, M('kibble','#a0522d'), 0,.22,0, bowl); bowls.push({bowl, food, until:now+dur+800}); }
+  if(type==='pet'||type==='eat'){ for(let i=0;i<4;i++){ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:heartTex, transparent:true, depthWrite:false, depthTest:false})); sp.scale.set(.4,.4,1); sp.renderOrder=12; sp.userData={born:now+i*300+(type==='eat'?1500:0), x:(Math.random()-.5)*.6}; sp.visible=false; g.add(sp); (P.fx=P.fx||[]).push(sp); } }
+  if(!remote) rt.send('pet',{pid:g.userData.pid, c:type}); }
+function updatePets(dt, nowPerf, t){ const nowMs=Date.now();
+  bowls.forEach(b=>{ if(nowPerf>b.until){ scene.remove(b.bowl); b.dead=true; } else b.food.scale.y=Math.max(.05,(b.until-nowPerf)/6000); }); for(let i=bowls.length-1;i>=0;i--) if(bowls[i].dead) bowls.splice(i,1);
+  movables.forEach(g=>{ const P=g.userData.pet; if(!P) return; const U=g.userData;
+    let m=P.mode; if(m&&nowPerf>m.until) P.mode=m=null;
+    let moving=false;
+    if(!editing){
+      const want=m?{x:g.position.x,z:g.position.z}:petSchedule(g,nowMs); const dx=want.x-g.position.x, dz=want.z-g.position.z, d=Math.hypot(dx,dz);
+      if(d>.02){ const step=Math.min(d, (d>1.2?2.2:1.2)*dt); g.position.x+=dx/d*step; g.position.z+=dz/d*step; moving=true;
+        let dr=Math.atan2(dx,dz)-g.rotation.y; dr=Math.atan2(Math.sin(dr),Math.cos(dr)); g.rotation.y+=dr*Math.min(1,dt*8); } }
+    const sit=m&&(m.type==='sit'||m.type==='eat'), happy=m&&(m.type==='pet'||m.type==='sit');
+    const k=Math.min(1,dt*10), ph=t*11;
+    P.rig.position.y+=((sit?-.12:0)+(moving?Math.abs(Math.sin(ph))*.04:0)-P.rig.position.y)*k;
+    P.rig.rotation.x+=((sit?-.28:0)-P.rig.rotation.x)*k;
+    P.legs.forEach((l,i)=>{ const back=i>=2; const target=sit?(back?-1.2:.25):(moving?Math.sin(ph+(i%2?Math.PI:0)+(back?Math.PI/2:0))*.6:0); l.rotation.x+=(target-l.rotation.x)*k; });
+    const eating=m&&m.type==='eat'&&nowPerf-m.start>900;
+    P.head.rotation.x+=((eating?.7+Math.sin(t*14)*.15:(sit?.28:0))-P.head.rotation.x)*k;
+    P.tail.rotation.z=Math.sin(t*(happy?10:(moving?5:2.2)))*(happy?.7:.35);
+    P.body.scale.y=.8*(1+Math.sin(t*(m&&m.type==='pet'?7:2))*.04);
+    if(P.fx&&P.fx.length) P.fx=P.fx.filter(sp=>{ const age=(nowPerf-sp.userData.born)/1400; if(age>=1){ g.remove(sp); return false; } sp.visible=age>0; if(age>0){ sp.position.set(sp.userData.x+Math.sin(age*8)*.08,.95+age*1.1,0); sp.material.opacity=1-age; } return true; });
+  }); }
+function petsForEdit(on){ movables.forEach(g=>{ if(!g.userData.pet) return;
+  if(on&&!editing){ g.position.copy(g.userData.home); g.rotation.y=g.userData.homeRot||0; g.userData.pet.mode=null; }
+  if(!on&&editing){ g.userData.home=g.position.clone(); g.userData.homeRot=g.rotation.y; g.userData.sched=null; } });
+  if(!on) layoutSig++; }
+
+// pet menu
+let petMenuFor=null;
+function openPetMenu(g){ if(editing) return; petMenuFor=g; const m=$('petmenu'); m.hidden=false; $('pet-rename').hidden=!(view.isOwner); $('pet-name-edit').hidden=true; $('pet-title').hidden=false;
+  $('pet-title').textContent=g.userData.petName; $('pet-kind').textContent=g.userData.pet.kind==='cat'?'고양이':'강아지'; m._l=null; placePetMenu(); }
+function closePetMenu(){ petMenuFor=null; $('petmenu').hidden=true; }
+function placePetMenu(){ const g=petMenuFor; if(!g) return; if(!movables.includes(g)){ closePetMenu(); return; } const m=$('petmenu');
+  const v=g.position.clone(); v.y=1.6; v.project(camera); const x=Math.round((v.x+1)/2*innerWidth), y=Math.round((1-v.y)/2*innerHeight);
+  if(m._l==null||Math.abs(x-m._l)>2||Math.abs(y-m._t)>2){ m._l=x; m._t=y; m.style.left=Math.max(130,Math.min(innerWidth-130,x))+'px'; m.style.top=Math.max(170,y)+'px'; } }
+document.querySelectorAll('[data-petcmd]').forEach(b=>b.addEventListener('click',()=>{ const g=petMenuFor; if(!g) return; const c=b.dataset.petcmd; petCmd(g,c);
+  toast({sit:g.userData.petName+'(이)가 앉았어요', eat:g.userData.petName+'에게 밥을 줬어요', pet:g.userData.petName+'(이)가 좋아해요'}[c]); }));
+$('pet-x').addEventListener('click',closePetMenu);
+$('pet-rename').addEventListener('click',()=>{ $('pet-title').hidden=true; $('pet-rename').hidden=true; const e=$('pet-name-edit'); e.hidden=false; const i=$('pet-name-in'); i.value=petMenuFor.userData.petName; i.focus(); i.select(); });
+$('pet-name-edit').addEventListener('submit',e=>{ e.preventDefault(); const g=petMenuFor; if(!g) return; setPetName(g,$('pet-name-in').value); $('pet-title').textContent=g.userData.petName;
+  $('pet-name-edit').hidden=true; $('pet-title').hidden=false; $('pet-rename').hidden=!view.isOwner; if(view.demo) toast('이름을 '+g.userData.petName+'(으)로 바꿨어요'); else saveRoom('이름을'); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&petMenuFor&&!(e.target&&e.target.id==='pet-name-in')) closePetMenu(); });
+
+
+// ---------- guestbook ----------
+let gbCount=0;
+function gbButton(V){ const b=document.createElement('button'); b.className='chip'; b.id='gb-open'; b.textContent='📖 방명록'; b.addEventListener('click',toggleGuestbook); V.appendChild(b); loadGuestbook(); }
+function toggleGuestbook(){ const p=$('gb'); p.hidden=!p.hidden; if(!p.hidden){ $('pl').hidden=true; $('find').hidden=true; loadGuestbook(); } }
+async function loadGuestbook(){ if(!view.room||!sb) return; const list=$('gb-list');
+  const r=await sb.from('lr_guestbook').select('id,body,created_at,author_id,lr_profiles(handle,display_name)').eq('room_id',view.room.id).order('created_at',{ascending:false}).limit(60);
+  if(r.error){ list.innerHTML='<li class="empty">방명록을 불러오지 못했어요</li>'; return; }
+  gbCount=r.data.length; const b=$('gb-open'); if(b) b.textContent='📖 방명록'+(gbCount?' '+gbCount:'');
+  $('gb-title').textContent=(view.isOwner?'내 방':view.host.display_name+'님 방')+' 방명록';
+  $('gb-form').hidden=!uid(); $('gb-login').hidden=!!uid();
+  list.innerHTML=''; if(!r.data.length){ list.innerHTML='<li class="empty">'+(view.isOwner?'아직 방명록이 없어요 · 친구를 초대해보세요':'첫 번째 방명록을 남겨보세요')+'</li>'; return; }
+  r.data.forEach(e=>{ const li=document.createElement('li'); li.className='gbe'; const who=e.lr_profiles||{}; const d=new Date(e.created_at);
+    li.innerHTML='<div class="gbh"><b></b><small></small></div><p></p>'; li.querySelector('b').textContent=who.display_name||'알 수 없음'; li.querySelector('small').textContent='@'+(who.handle||'?')+' · '+(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+    li.querySelector('p').textContent=e.body;
+    if(uid()&&(uid()===e.author_id||view.isOwner)){ const x=document.createElement('button'); x.className='gbx'; x.textContent='지우기'; x.addEventListener('click',async()=>{ if(x.dataset.sure!=='1'){ x.dataset.sure='1'; x.textContent='정말 지울까요?'; return; }
+      const d2=await sb.from('lr_guestbook').delete().eq('id',e.id); if(d2.error) toast('지우지 못했어요'); else { rt.send('gb',{}); loadGuestbook(); } }); li.querySelector('.gbh').appendChild(x); }
+    list.appendChild(li); }); }
+$('gb-x').addEventListener('click',()=>$('gb').hidden=true);
+$('gb-login').addEventListener('click',()=>openAuth('login'));
+$('gb-in').addEventListener('input',e=>{ $('gb-left').textContent=(300-e.target.value.length)+'자 남음'; });
+$('gb-form').addEventListener('submit',async e=>{ e.preventDefault(); const body=$('gb-in').value.trim(); if(!body) return; if(!uid()){ openAuth('login'); return; }
+  const btn=$('gb-form').querySelector('button'); btn.disabled=true;
+  const r=await sb.from('lr_guestbook').insert({room_id:view.room.id, author_id:uid(), body:body.slice(0,300)}); btn.disabled=false;
+  if(r.error){ toast('방명록을 남기지 못했어요 · '+r.error.message); return; }
+  $('gb-in').value=''; $('gb-left').textContent='300자 남음'; toast('방명록을 남겼어요'); rt.send('gb',{}); chatLine('sys','',me.o.name+'님이 방명록을 남겼어요'); loadGuestbook(); });
 
 // ---------- find other rooms ----------
 let findSeq=0, findT=null;
@@ -1183,7 +1300,7 @@ canvas.addEventListener('pointerup',ev=>{
   if(!downAt) return; const moved=Math.hypot(ev.clientX-downAt[0],ev.clientY-downAt[1]); downAt=null; if(moved>5) return;
   if(editing){ if(pickMovable(ev)) return; setRay(ev); const hit=ray.intersectObjects(surfMeshes,false).find(h=>isShown(h.object));
     if(hit) selectSurface(hit.object===floorMesh?'floor':'wall', hit.point); else select(null); return; }
-  const h=pick(ev); if(h){ h.act(); return; }
+  const h=pick(ev); if(h){ h.act(); return; } closePetMenu();
   const g=pickMovable(ev); if(g&&SEATS[g.userData.type]){ const hit=ray.intersectObject(g,true)[0]; sitHere(g, hit?hit.point:g.position.clone()); } });
 
 // ---------- loop ----------
@@ -1208,8 +1325,7 @@ function frame(now){
   bulbs.forEach((b,i)=>b.scale.setScalar(1+Math.sin(t*3+i)*.15));
   movables.forEach(g=>{ if(g.userData.type==='lamp'){ const on=!g.userData.off; if(g.userData.light) g.userData.light.intensity += ((on?1.6:0)-g.userData.light.intensity)*.15; g.userData.shade.material.emissiveIntensity=on?.9:.05; } });
   tvLight.intensity=1+beat*.5;
-  movables.forEach(g=>{ const A=g.userData.anim; if(!A) return; const purr=g.userData.purr&&now-g.userData.purr<2500;
-    A.tail.rotation.z=Math.sin(t*(purr?9:2.2))*(purr?.6:.35); A.body.scale.y=.85*(1+Math.sin(t*(purr?6:2))*.04); });
+  updatePets(dt, now, t); placePetMenu();
   if((tvTick%1)<dt){ const d=new Date(); movables.forEach(g=>{ const hd=g.userData.hands; if(!hd) return; hd[0].rotation.z=-((d.getHours()%12)+d.getMinutes()/60)/12*Math.PI*2; hd[1].rotation.z=-(d.getMinutes()+d.getSeconds()/60)/60*Math.PI*2; }); }
   if(selected){ selBox.setFromObject(selected); } if(selected||surface) placeTool();
   if((tvTick+=dt)>.1){ tvTick=0; drawTV(now); }
