@@ -274,6 +274,89 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 .petmenu form{display:flex;gap:6px}.petmenu input{flex:1;min-width:0;font:inherit;font-size:14px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
 .pacts{display:flex;gap:6px}.pacts button{flex:1;font:inherit;font-size:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;padding:8px 6px;cursor:pointer;white-space:nowrap}
 .pacts button:hover{border-color:var(--accent)}
+
+/* ---------- phones ---------- */
+.ui{z-index:3}
+button,.chip,.emo,.pill,a.btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.pad [data-key="a"]{grid-column:1;grid-row:2}.pad [data-key="s"]{grid-column:2;grid-row:2}.pad [data-key="d"]{grid-column:3;grid-row:2}
+.info span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:760px){
+  input,select,textarea{font-size:16px!important}   /* iOS zooms the page into smaller inputs */
+  .brand{left:8px;top:calc(8px + env(safe-area-inset-top,0px));padding:7px 12px 7px 8px;gap:8px;max-width:calc(100% - 16px)}
+  .brand .lg{width:30px;height:30px;border-radius:9px;font-size:16px}
+  .brand b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
+  .brand span{font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70vw}
+  .tform input{width:52vw}
+  .themes{left:8px;right:8px;top:calc(64px + env(safe-area-inset-top,0px));padding:4px;gap:2px;overflow-x:auto;scrollbar-width:none;justify-content:space-between}
+  .themes::-webkit-scrollbar,.visit::-webkit-scrollbar,.actions::-webkit-scrollbar{display:none}
+  .themes button,.themes .chip{white-space:nowrap;font-size:12.5px;padding:8px 10px;flex:none}
+  .themes .lbl{display:none}
+  .acct{flex:none}
+  .visit{left:8px;right:8px;top:calc(114px + env(safe-area-inset-top,0px));flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:4px}
+  .visit>*{flex:none}.visit .chip{padding:7px 10px;font-size:12px;white-space:nowrap}
+  .hint{display:none}
+  body.editing .hint{display:flex;top:calc(64px + env(safe-area-inset-top,0px));bottom:auto;font-size:11px;padding:6px 12px}
+  .bottom{width:auto;left:8px;right:8px;transform:none;bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  .player{padding:8px 8px 8px 12px;gap:6px}
+  .th,.djf{display:none}
+  .info b{font-size:13.5px}.info span{font-size:11px}.bar{margin-top:6px}
+  .player .btn{width:44px;height:44px}.player .btn.ghost{width:38px;height:38px}
+  .volpop{position:fixed;left:8px;right:8px;bottom:calc(84px + env(safe-area-inset-bottom,0px));justify-content:space-between}
+  .volpop input{flex:1;width:auto}
+  /* one compact dock above the player: chat on the left, moves on the right */
+  .actions,body.chat-min .actions{left:8px;right:8px;max-width:none;bottom:calc(80px + env(safe-area-inset-bottom,0px));flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:4px;gap:3px}
+  .actions>*{flex:none}.actions .vsep{display:none}
+  .emo{width:40px;height:40px}
+  .chatbox,body.chat-min .chatbox{left:8px;width:calc(100% - 16px);bottom:calc(136px + env(safe-area-inset-bottom,0px));height:min(42vh,320px);min-width:0}
+  body.chat-min .chatbox{width:auto;right:auto;height:auto;padding:6px 8px}
+  body.chat-min .chatbox .chat{display:none}
+  body.chat-min .chatbox header{gap:6px}
+  body.chat-min .chatbox header b{font-size:15px}
+  .chatbox .pill{display:inline-block}
+  .pad{left:auto;right:8px;bottom:calc(136px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px);gap:4px;padding:6px}
+  .pad button{font-size:15px}
+  body:not(.chat-min) .pad{display:none}
+  /* panels become bottom sheets over everything */
+  .panel{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:78dvh;z-index:6;border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -12px 40px rgba(0,0,0,.45)}
+  body:has(.panel:not([hidden])) .ui2,body:has(.panel:not([hidden])) .bottom{visibility:hidden}
+  .yslist{max-height:none}
+  /* decorate mode */
+  .drawer{padding:10px 10px 12px}
+  .dh{flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .dtabs{flex:1 1 auto}.dtabs button{flex:1;padding:7px 6px;font-size:13px}
+  .dh .acts{margin-left:0;width:100%;justify-content:flex-end;gap:6px}
+  .dh .acts .pill{padding:9px 14px}.dh .acts #save{flex:1}
+  .item{width:84px}.item img{width:70px;height:58px}
+  .tool{max-width:calc(100vw - 16px)}
+  .dress{left:0;right:0;bottom:0;width:auto;height:58dvh;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+  .toast{top:calc(116px + env(safe-area-inset-top,0px));max-width:calc(100% - 32px);white-space:normal;text-align:center}
+  .tapplay{font-size:18px;padding:14px 22px}
+  .petmenu{max-width:calc(100vw - 16px)}
+}
+@media (max-width:1560px){ .hint .long{display:none} }
+@media (max-width:760px) and (pointer:coarse){ .pad{display:grid} body:not(.chat-min) .pad{display:none} }
+@media (max-height:500px) and (orientation:landscape){
+  .brand span{display:none}
+  .brand{padding:6px 10px 6px 6px}.brand .lg{width:26px;height:26px;font-size:14px}.brand b{font-size:15px}
+  .themes{left:auto;right:8px;top:calc(8px + env(safe-area-inset-top,0px));justify-content:flex-end;max-width:calc(100% - 260px)}
+  .visit{top:calc(56px + env(safe-area-inset-top,0px));right:auto;max-width:60%}
+  .bottom{left:auto;right:calc(8px + env(safe-area-inset-right,0px));width:min(420px,56%)}
+  .player{padding:6px 6px 6px 10px}.player .btn{width:38px;height:38px}.player .btn.ghost{width:34px;height:34px}
+  .volpop{left:auto;right:8px;width:min(360px,60%);bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .actions,body.chat-min .actions{left:calc(8px + env(safe-area-inset-left,0px));right:auto;width:calc(44% - 24px);bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  .emo{width:36px;height:36px}
+  .chatbox,body.chat-min .chatbox{left:calc(8px + env(safe-area-inset-left,0px));width:min(340px,44%);bottom:calc(60px + env(safe-area-inset-bottom,0px));height:calc(100dvh - 140px)}
+  body.chat-min .chatbox{height:auto;width:auto}
+  .pad{bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .panel{left:auto;right:0;top:0;bottom:0;width:min(420px,60%);max-height:none;border-radius:20px 0 0 20px}
+  .dress{left:auto;top:0;width:min(380px,55%);height:auto;border-radius:20px 0 0 20px}
+  body.editing .hint{display:none}
+  .bottom:has(.drawer:not([hidden])){left:8px;width:auto}
+  .dh{flex-wrap:nowrap;margin-bottom:6px}.dh .acts{width:auto}.dh .acts #save{flex:none}
+  .dtabs button{padding:6px 8px;font-size:12px}
+  .item{width:72px;padding:4px}.item img{width:60px;height:42px}.item small{display:none}
+  .toast{top:calc(52px + env(safe-area-inset-top,0px))}
+}
 </style>
 </head><body>
 
@@ -283,10 +366,10 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
   <div class="visit glass" id="visit" hidden></div>
   <div class="hint glass" id="hint"></div>
   <div class="themes glass" role="group" aria-label="방 꾸미기">
-    <button id="find-open" class="chip">🔍 방 찾기</button>
+    <button id="find-open" class="chip">🔍<span class="lbl"> 방 찾기</span></button>
     <span class="acct" id="acct"></span>
-    <button id="dress" class="chip">☺ 캐릭터 꾸미기</button>
-    <button id="edit">✎ 방 꾸미기</button>
+    <button id="dress" class="chip">☺ 캐릭터<span class="lbl"> 꾸미기</span></button>
+    <button id="edit">✎ <span class="lbl">방 </span>꾸미기</button>
   </div>
   <div class="side glass">
     <button class="chip" id="v-reset">⟲ 기본 시점</button>
