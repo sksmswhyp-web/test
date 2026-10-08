@@ -542,7 +542,7 @@ let editing=false, selected=null, drag=null, snapshot=null;
 const hint=$('hint');
 function setHint(){ hint.innerHTML = editing
   ? '<span class="mode">꾸미기 모드</span><span><b>가구 드래그</b> 이동 <span class="long">· <kbd>R</kbd> 회전 · 방향키 미세 이동 · <kbd>Ctrl+Z</kbd> 되돌리기 · <kbd>Ctrl+D</kbd> 복제</span></span>'
-  : '<b>WASD</b> 걷기 · <b>E</b> 앉기 · <b>1~5</b> 감정표현 · <b>Enter</b> 말하기 <span class="long">· 드래그 회전 · 스크롤 확대</span>'; }
+  : '<b>WASD</b> 걷기 · <b>E</b> 앉기 · <b>1~5</b> 감정표현 · <b>Enter</b> 말하기 <span class="long">· <b>M</b> 음소거 · 드래그 회전 · 스크롤 확대</span>'; }
 setHint();
 const grid=new THREE.GridHelper(10,20,0xffffff,0xffffff); grid.position.y=.13; grid.material.transparent=true; grid.material.opacity=.18; grid.visible=false; scene.add(grid);
 const fpMat=new THREE.MeshBasicMaterial({color:0x3ddc97, transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide});
@@ -940,7 +940,7 @@ const ytObj=new THREE.CSS3DObject(ytWrap); cssScene.add(ytObj); ytWrap.style.opa
 cssRenderer.domElement.firstChild.appendChild(ytWrap);
 let yt=null, ytReady=false, ytWant=null;
 window.onYouTubeIframeAPIReady=()=>{ yt=new YT.Player('ytp',{ width:1280, height:720, playerVars:{controls:0, rel:0, playsinline:1, modestbranding:1, iv_load_policy:3, disablekb:1, origin:location.origin},
-  events:{ onReady:()=>{ ytReady=true; if(ytWant) loadNow(ytWant.auto); },
+  events:{ onReady:()=>{ ytReady=true; applyVol(); if(ytWant) loadNow(ytWant.auto); },
     onStateChange:e=>{ const S=YT.PlayerState;
       if(e.data===S.PLAYING){ setPlaying(true); fillTitle(); ytFailed.clear(); }
       else if(e.data===S.PAUSED){ setPlaying(false); }
@@ -951,6 +951,25 @@ window.onYouTubeIframeAPIReady=()=>{ yt=new YT.Player('ytp',{ width:1280, height
       toast('이 영상은 방에서 재생할 수 없어요 · 다음 곡으로 넘어가요'); setTimeout(()=>step(1),1500); } } }); };
 const ytFailed=new Set();
 function setPlaying(on){ playing=on; playBtn.textContent=on?'❚❚':'▶'; $('tapplay').hidden=true; }
+// ---------- background music volume (kept per browser) ----------
+const VOL_KEY='lr_volume'; const vol={v:70, muted:false};
+try{ const s=JSON.parse(localStorage.getItem(VOL_KEY)||'null'); if(s&&typeof s.v==='number'){ vol.v=Math.max(0,Math.min(100,Math.round(s.v))); vol.muted=!!s.muted; } }catch(e){}
+function volLevel(){ return vol.muted?0:vol.v; }
+function applyVol(save){ const eff=volLevel(), icon=eff===0?'🔇':eff<35?'🔈':eff<70?'🔉':'🔊';
+  if(ytReady&&yt&&yt.setVolume){ yt.setVolume(vol.v); if(eff===0) yt.mute(); else yt.unMute(); }
+  $('vol').value=vol.v; $('vol-out').textContent=vol.muted?'음소거':vol.v+'%'; $('vol-btn').textContent=icon; $('vol-mute').textContent=vol.muted?'🔇':'🔊';
+  $('vol-mute').setAttribute('aria-pressed',vol.muted); $('vol-btn').title='볼륨 '+(vol.muted?'음소거':vol.v+'%')+' · M 음소거';
+  if(save) try{ localStorage.setItem(VOL_KEY,JSON.stringify(vol)); }catch(e){} }
+function setVol(v){ vol.v=Math.max(0,Math.min(100,Math.round(v))); vol.muted=false; applyVol(true); }
+function toggleMute(){ if(!vol.muted&&vol.v===0) vol.v=50; vol.muted=!vol.muted; applyVol(true); }
+function showVolPop(on){ $('volpop').hidden=!on; $('vol-btn').setAttribute('aria-expanded',on); }
+$('vol-btn').addEventListener('click',()=>showVolPop($('volpop').hidden));
+$('vol').addEventListener('input',e=>setVol(+e.target.value));
+$('vol-mute').addEventListener('click',toggleMute);
+document.querySelector('.volw').addEventListener('wheel',e=>{ e.preventDefault(); setVol(vol.v+(e.deltaY<0?5:-5)); if($('volpop').hidden) toast('볼륨 '+vol.v+'%'); },{passive:false});
+addEventListener('pointerdown',e=>{ if(!$('volpop').hidden&&!e.target.closest('.volw')) showVolPop(false); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('volpop').hidden) showVolPop(false); });
+applyVol();
 function loadNow(autoplay, startAt=0){ updateNow(); const t=nowPL&&nowPL.tracks[nowIdx];
   if(!ytReady){ ytWant={auto:autoplay}; return; }
   if(!t){ yt.stopVideo(); setPlaying(false); return; }
@@ -1049,6 +1068,7 @@ addEventListener('keydown',e=>{ if(typing(e)||editing||dressing) return; const k
   if(k==='e'&&!e.repeat) toggleSit();
   const ek=['dance','wave','clap','jump','heart'][+e.key-1]; if(ek&&!e.repeat) doEmote(ek);
   if(k==='t'&&!e.repeat) tapTempo();
+  if(k==='m'&&!e.repeat){ toggleMute(); toast(vol.muted?'배경음악 음소거':'볼륨 '+vol.v+'%'); }
   if(k==='enter'&&!e.repeat){ e.preventDefault(); $('chat-in').focus(); } });
 addEventListener('keyup',e=>walk.keys.delete(e.key.toLowerCase()));
 addEventListener('blur',()=>walk.keys.clear());
@@ -1404,7 +1424,7 @@ function frame(now){
   if(view.isOwner&&rt.ch&&performance.now()-rt.lastDj>5000) djSend();
   avatars.forEach(a=>{ if(a.chat&&performance.now()>a.chatUntil){ a.g.remove(a.chat); a.chat=null; } });
   prog.style.width=(progress*100)+'%';
-  speakers.forEach(s=>{ s.userData.kick=Math.max(0,(s.userData.kick||0)-dt*2); const k=1+beat*.06+s.userData.kick*.15; s.userData.cones.forEach(c=>c.scale.set(k,1,k)); });
+  speakers.forEach(s=>{ s.userData.kick=Math.max(0,(s.userData.kick||0)-dt*2); const k=1+(beat*.06+s.userData.kick*.15)*Math.min(1,volLevel()/60); s.userData.cones.forEach(c=>c.scale.set(k,1,k)); });
   avatars.forEach(a=>{ animateAvatar(a, ph, beat, now, dt); if(a.bub) a.bub.position.y=a.by+2.45+Math.sin(t*2+a.phase)*.05; });
   notes.forEach((n,i)=>{ n.userData.t=(n.userData.t+dt*(playing?.12:0))%1; const u=n.userData.t; n.position.set((i%2?3:-3)+Math.sin(u*6+i)*.4, 3.2+u*2.8, -3.7+Math.cos(i)*.3); n.material.opacity=(playing&&!editing)?Math.sin(u*Math.PI):0; });
   bulbs.forEach((b,i)=>b.scale.setScalar(1+Math.sin(t*3+i)*.15));

@@ -135,6 +135,11 @@ a.btn{text-decoration:none}
 .doorrow small{color:var(--mute)}
 .fade{position:fixed;inset:0;z-index:20;background:#0c0a14;opacity:0;pointer-events:none;transition:opacity .35s}
 .fade.on{opacity:1;pointer-events:auto}
+.volw{position:relative;flex:none}
+.volpop{position:absolute;right:-8px;bottom:calc(100% + 14px);display:flex;align-items:center;gap:10px;padding:10px 14px 10px 10px;background:rgba(24,18,44,.92);z-index:6;white-space:nowrap}
+.volm{font:inherit;font-size:15px;width:34px;height:34px;border-radius:10px;border:0;background:rgba(255,255,255,.1);color:var(--ink);cursor:pointer;flex:none}
+.volpop input{width:150px;accent-color:var(--accent);--p:70%}
+.volpop output{min-width:44px;text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--mute)}
 .sizerow{flex-basis:100%;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute);padding:4px 8px 2px;border-top:1px solid var(--line);margin-top:4px}
 .sizerow label{display:flex;align-items:center;gap:6px}
 .sizerow input{width:96px;accent-color:var(--accent)}
@@ -304,6 +309,8 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
       <button class="btn ghost" id="prev" aria-label="이전 곡">⏮</button>
       <button class="btn" id="play" aria-label="재생 / 일시정지">❚❚</button>
       <button class="btn ghost" id="next" aria-label="다음 곡">⏭</button>
+      <div class="volw"><button class="btn ghost" id="vol-btn" aria-label="배경음악 볼륨" aria-expanded="false" title="볼륨 · M 음소거">🔊</button>
+        <div class="volpop glass" id="volpop" hidden><button class="volm" id="vol-mute" aria-label="음소거" title="음소거 (M)">🔊</button><input type="range" id="vol" min="0" max="100" step="1" value="70" aria-label="배경음악 볼륨"><output id="vol-out">70%</output></div></div>
       <a class="btn ghost yt" id="yt" href="https://www.youtube.com" target="_blank" rel="noopener" aria-label="유튜브에서 열기" title="유튜브에서 열기">▶</a>
       <button class="btn ghost" id="pl-open" aria-label="플레이리스트" title="플레이리스트">☰</button>
     </div>
