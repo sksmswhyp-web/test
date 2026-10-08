@@ -165,15 +165,31 @@ body.dressing .bottom,body.dressing .side,body.dressing .hint{display:none}
 .tapplay{position:fixed;z-index:3;left:50%;top:44%;transform:translate(-50%,-50%);font:inherit;font-family:var(--display);font-size:20px;padding:16px 26px;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);cursor:pointer;box-shadow:0 12px 40px rgba(0,0,0,.45)}
 .djf{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mute);white-space:nowrap}
 body:not(.ro) .djf{display:none}
-.chat{position:absolute;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(280px,calc(100% - 32px));display:flex;gap:6px;padding:6px}
+.chatbox{position:absolute;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:300px;height:290px;display:flex;flex-direction:column;padding:10px;gap:8px}
+.chatbox header{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
+.chatbox header b{font-family:var(--display);font-weight:400;font-size:17px;color:var(--ink)}
+.chatbox header .btn{margin-left:auto;width:30px;height:30px;font-size:13px}
+.chatbox .badge{min-width:18px;height:18px;border-radius:9px;background:var(--pop);color:#fff;font-size:11px;font-style:normal;font-weight:700;display:grid;place-items:center;padding:0 5px}
+.chatlog{flex:1;min-height:0;overflow-y:auto;margin:0;padding:0 2px;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.4}
+.chatlog li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.chatlog li small{font-size:11px;color:var(--mute)}
+.chatlog li span{background:rgba(255,255,255,.08);border-radius:4px 12px 12px 12px;padding:6px 10px;max-width:100%;overflow-wrap:anywhere}
+.chatlog li.mine{align-items:flex-end}.chatlog li.mine span{background:#7b5cff;border-radius:12px 4px 12px 12px}
+.chatlog li.sys{align-items:center}.chatlog li.sys span{background:none;color:var(--mute);font-size:11px;padding:0}
+.chat{display:flex;gap:6px}
+.chat .pill{padding:8px 12px;font-size:12px}
+body.chat-min .chatbox{height:auto}
+body.chat-min .chatlog{display:none}
+body.chat-min #chat-min{transform:rotate(180deg)}
 .chat input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
 .chat input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body.editing .visit,body.dressing .visit{display:none}
+body.editing .chatbox,body.dressing .chatbox,body.editing .pad,body.dressing .pad,body.editing .visit,body.dressing .visit{display:none}
 .pad{position:absolute;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:none;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:6px;padding:8px}
 .pad button{font:inherit;font-size:18px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--ink);touch-action:none}
 .pad .up{grid-column:2}
-.sitbtn{position:absolute;left:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));padding:12px 16px;color:var(--ink)}
+.sitbtn{position:absolute;left:16px;bottom:calc(318px + env(safe-area-inset-bottom,0px));padding:10px 14px;color:var(--ink);background:var(--glass)!important;border:1px solid var(--line)!important}
 body.editing .sitbtn,body.dressing .sitbtn{display:none}
+body.chat-min .sitbtn{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 @media (pointer:coarse){ .pad{display:grid} }
 .auth{position:fixed;inset:0;z-index:10;background:rgba(8,5,18,.6);display:grid;place-items:center;padding:16px}
 .auth form{width:min(380px,100%);padding:22px;display:flex;flex-direction:column;gap:10px}
@@ -184,7 +200,7 @@ body.editing .sitbtn,body.dressing .sitbtn{display:none}
 .auth .err{color:var(--bad);font-size:12px;min-height:1em}
 .auth .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .auth .link{font:inherit;font-size:12px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
-@media (max-width:760px){ .sitbtn{left:auto;right:16px;bottom:calc(166px + env(safe-area-inset-bottom,0px))} .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chat{width:calc(100% - 32px);bottom:calc(112px + env(safe-area-inset-bottom,0px))} .pad{bottom:calc(166px + env(safe-area-inset-bottom,0px))} }
+@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chatbox{width:calc(100% - 210px);min-width:150px;height:220px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .chatbox .pill{display:none} .pad{left:auto;right:16px;bottom:calc(112px + env(safe-area-inset-bottom,0px))} .sitbtn,body.chat-min .sitbtn{left:auto;right:16px;bottom:calc(240px + env(safe-area-inset-bottom,0px))} }
 .findq{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
 .findq:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .rooms{gap:6px}
@@ -276,7 +292,11 @@ body.editing .sitbtn,body.dressing .sitbtn{display:none}
 <input type="file" id="photoInput" accept="image/*" hidden>
 <button class="tapplay" id="tapplay" hidden>▶ 눌러서 음악 듣기</button>
 <div class="ui2">
-  <form class="chat glass" id="chat"><input id="chat-in" maxlength="40" placeholder="말하기 · Enter" autocomplete="off" aria-label="채팅"></form>
+  <section class="chatbox glass" id="chatbox" aria-label="채팅">
+    <header><b>채팅</b><span id="chat-who">혼자 듣는 중</span><i class="badge" id="chat-new" hidden></i><button type="button" class="btn ghost" id="chat-min" aria-label="채팅 접기" aria-expanded="true">▾</button></header>
+    <ol class="chatlog" id="chat-log" aria-live="polite"></ol>
+    <form class="chat" id="chat"><input id="chat-in" maxlength="80" placeholder="메시지 보내기 · Enter" autocomplete="off" aria-label="채팅 메시지"><button class="pill save" type="submit">보내기</button></form>
+  </section>
   <button class="chip sitbtn glass" id="sit">🪑 앉기 (E)</button>
   <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
 </div>

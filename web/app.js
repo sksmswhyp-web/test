@@ -366,7 +366,7 @@ const spinBtn=$('v-spin');
 function setSpin(on){ controls.autoRotate=on; spinBtn.setAttribute('aria-pressed',on); spinBtn.textContent=on?'↻ 자동 회전 켜짐':'↻ 자동 회전 꺼짐'; }
 spinBtn.addEventListener('click',()=>setSpin(!controls.autoRotate));
 controls.addEventListener('start',()=>{ tween=null; if(controls.autoRotate) setSpin(false); });
-setSpin(!reduce);
+setSpin(false);
 
 // ---------- decorate mode ----------
 let editing=false, selected=null, drag=null, snapshot=null;
@@ -733,13 +733,14 @@ const rt={ ch:null, key:null, lastMv:0, lastDj:0, dj:null,
   djActive(){ return !!this.dj && Date.now()-this.dj.recv<15000; } };
 function myPresence(){ return {name:me.o.name, av:avatarData(me.o), host:view.isOwner, uid:uid()||null}; }
 function joinRoomChannel(roomId){
+  $('chat-log').innerHTML=''; chatLine('sys','','방에 들어왔어요 · 채팅은 지금 이 방에 있는 사람에게만 보여요');
   if(rt.ch){ sb.removeChannel(rt.ch); rt.ch=null; } peers.forEach(p=>dropPeer(p)); peers.clear(); rt.dj=null;
   if(!sb) return;
   rt.key=uid()||('guest-'+Math.random().toString(36).slice(2,10));
   const ch=sb.channel('lr-room:'+roomId,{config:{presence:{key:rt.key}, broadcast:{self:false}}}); rt.ch=ch;
   ch.on('presence',{event:'sync'},()=>syncPeers(ch.presenceState()));
   ch.on('broadcast',{event:'mv'},({payload:m})=>{ const p=peers.get(m.k); if(!p) return; p.tx=m.x; p.ty=m.y; p.tz=m.z; p.tr=m.r; p.moving=m.m; if(m.p!==p.a.o.pose){ p.a.o.pose=m.p; p.a.o.pos=[m.x,m.y,m.z]; rebuildAvatar(p.a); } });
-  ch.on('broadcast',{event:'say'},({payload:m})=>{ const p=peers.get(m.k); if(p) sayOn(p.a,m.text); });
+  ch.on('broadcast',{event:'say'},({payload:m})=>{ const p=peers.get(m.k); if(p) sayOn(p.a,m.text); chatLine('',(m.name||(p&&p.a.o.name)||'손님').replace(/ ★$/,''),String(m.text||'').slice(0,80)); });
   ch.on('broadcast',{event:'look'},({payload:m})=>{ const p=peers.get(m.k); if(p){ p.a.o={...p.a.o, ...m.av, name:m.name}; rebuildAvatar(p.a); } });
   ch.on('broadcast',{event:'dj'},({payload:m})=>{ if(view.isOwner) return; rt.dj={...m, recv:Date.now()}; followDj(); });
   ch.on('broadcast',{event:'pl'},()=>{ if(!view.isOwner&&view.host) loadPlaylists(view.host.id); });
@@ -747,12 +748,12 @@ function joinRoomChannel(roomId){
   ch.subscribe(st=>{ if(st==='SUBSCRIBED'){ ch.track(myPresence()); sendMv(true); djSend(); } }); }
 function syncPeers(state){
   const keys=new Set(Object.keys(state).filter(k=>k!==rt.key));
-  peers.forEach((p,k)=>{ if(!keys.has(k)){ dropPeer(p); peers.delete(k); } });
+  peers.forEach((p,k)=>{ if(!keys.has(k)){ chatLine('sys','',p.a.o.name.replace(/ ★$/,'')+'님이 나갔어요'); dropPeer(p); peers.delete(k); } });
   keys.forEach(k=>{ const info=state[k][0]||{}; if(peers.has(k)) return;
     const a=avatar({...ME_DEFAULT, ...(info.av||{}), name:(info.name||'손님')+(info.host?' ★':''), parent:scene, pose:'stand', pos:[0,0,3.6], rot:Math.PI, tagBg:info.host?'rgba(255,184,107,.9)':undefined});
-    peers.set(k,{a, tx:0, ty:0, tz:3.6, tr:Math.PI, moving:false, host:!!info.host}); sendMv(true); });
+    peers.set(k,{a, tx:0, ty:0, tz:3.6, tr:Math.PI, moving:false, host:!!info.host}); chatLine('sys','',(info.name||'손님')+'님이 들어왔어요'); sendMv(true); });
   view.hostHere=[...peers.values()].some(p=>p.host); if(hostA) hostA.g.visible=!view.hostHere;
-  const n=peers.size+1; $('who').textContent = n>1 ? `${n}명 함께 듣는 중` : '지금은 혼자 듣는 중'; }
+  const n=peers.size+1; $('who').textContent = n>1 ? `${n}명 함께 듣는 중` : '지금은 혼자 듣는 중'; $('chat-who').textContent = n>1 ? `${n}명` : '혼자 듣는 중'; }
 function dropPeer(p){ p.a.g.parent&&p.a.g.parent.remove(p.a.g); const i=avatars.indexOf(p.a); if(i>=0) avatars.splice(i,1); }
 function sendMv(force){ if(!rt.ch) return; const now=performance.now(); if(!force&&now-rt.lastMv<100) return; rt.lastMv=now;
   const w=new THREE.Vector3(); me.g.getWorldPosition(w); const q=new THREE.Quaternion(); me.g.getWorldQuaternion(q); const r=new THREE.Euler().setFromQuaternion(q,'YXZ').y;
@@ -769,7 +770,18 @@ let userTapped=false; addEventListener('pointerdown',()=>{ userTapped=true; },{o
 
 // chat
 $('chat-in').addEventListener('keydown',e=>{ if(e.key==='Escape') e.target.blur(); });
-$('chat').addEventListener('submit',e=>{ e.preventDefault(); const i=$('chat-in'); const text=i.value.trim(); if(!text){ i.blur(); return; } i.value=''; sayOn(me,text); rt.send('say',{text:text.slice(0,40)}); i.blur(); });
+// chat window: a running log next to the speech bubbles (live only; not stored on the server)
+let chatUnread=0;
+function chatLine(kind, who, text){ const log=$('chat-log'); const li=document.createElement('li'); li.className=kind;
+  const t=new Date(); const hhmm=t.getHours()+':'+String(t.getMinutes()).padStart(2,'0');
+  if(kind!=='sys'){ const sm=document.createElement('small'); sm.textContent=(kind==='mine'?'나':who)+' · '+hhmm; li.appendChild(sm); }
+  const sp=document.createElement('span'); sp.textContent=text; li.appendChild(sp); log.appendChild(li);
+  while(log.children.length>100) log.firstChild.remove(); log.scrollTop=log.scrollHeight;
+  if(kind!=='mine'&&document.body.classList.contains('chat-min')){ chatUnread++; const b=$('chat-new'); b.textContent=chatUnread; b.hidden=false; } }
+$('chat-min').addEventListener('click',()=>{ const min=document.body.classList.toggle('chat-min'); $('chat-min').setAttribute('aria-expanded',!min); if(!min){ chatUnread=0; $('chat-new').hidden=true; $('chat-log').scrollTop=1e9; } });
+if(matchMedia('(max-width:760px)').matches) document.body.classList.add('chat-min');
+$('chat').addEventListener('submit',e=>{ e.preventDefault(); const i=$('chat-in'); const text=i.value.trim(); if(!text){ i.blur(); return; } i.value='';
+  sayOn(me,text); chatLine('mine',me.o.name,text); rt.send('say',{text:text.slice(0,80), name:me.o.name}); i.blur(); });
 
 // ---------- walking with WASD / arrow keys ----------
 const walk={keys:new Set(), moving:false, vel:0};
@@ -812,7 +824,6 @@ function updateWalk(dt){
     if(!blocked(nx,p.z)) p.x=nx; if(!blocked(p.x,nz)) p.z=nz;
     const moved=new THREE.Vector3(p.x-ox,0,p.z-oz); me.o.pos=[p.x,0,p.z];
     const targetR=Math.atan2(dir.x,dir.z); let d=targetR-me.g.rotation.y; d=Math.atan2(Math.sin(d),Math.cos(d)); me.g.rotation.y+=d*Math.min(1,dt*12); me.o.rot=me.g.rotation.y;
-    if(!tween){ controls.target.add(moved); camera.position.add(moved); }
     sendMv(false);
   } else if(walk.wasMoving) sendMv(true);
   walk.wasMoving=walk.moving;
