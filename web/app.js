@@ -212,10 +212,13 @@ const CATALOG = {
     clickable(g,'스피커 · 비트에 맞춰 진동', ()=>{ g.userData.kick=1; });
   }},
   shelf:{name:'LP 선반', fp:[1.2,1.1], build(g){
-    box(1.2,4.2,1.1, M('shelf','#8a5a3b'), 0,2.1,0, g).userData.paint=true;
+    const wood=M('shelf','#8a5a3b');
+    box(1.2,4.2,.06, M('shelfBack','#5a3a26'), 0,2.1,-.52, g).userData.paint='main';
+    [-.565,.565].forEach(x=>{ box(.07,4.2,1.1, wood, x,2.1,0, g).userData.paint='main'; });
+    [.035,1.05,2.05,3.05,4.165].forEach(y=>{ box(1.06,.07,1.08, wood, 0,y,.01, g).userData.paint='main'; });
     const cols=['#ff6b6b','#ffd166','#06d6a0','#4cc9f0','#b388eb','#f15bb5','#fee440','#00bbf9'];
-    for(let k=0;k<4;k++){ const y=.2+k*1.0; box(1.0,.85,.02, M('shelfIn','#2a1a12'), 0,y+.42,.54, g);
-      for(let r=0;r<8;r++){ if(k===3&&r>5) break; const hh=.78-(r%3)*.06; box(.09,hh,.8, M('rec'+((r+k*3)%8),cols[(r+k*3)%8],{roughness:.6}), -.4+r*.11,y+hh/2,.15, g); } }
+    for(let k=0;k<4;k++){ const y0=[.07,1.085,2.085,3.085][k];
+      for(let r=0;r<8;r++){ if(k===3&&r>5) break; const hh=.78-(r%3)*.06; const rec=box(.08,hh,.78, M('rec'+((r+k*3)%8),cols[(r+k*3)%8],{roughness:.6}), -.41+r*.11,y0+hh/2,-.06, g); if(r===7) rec.rotation.z=-.12; } }
     cyl(.22,.18,.36, M('pot','#e8d6c0'), 0,4.38,0, g);
     [[0,.2,0],[.15,.1,.1],[-.15,.12,-.05]].forEach(([x,y,z])=>sph(.25, M('leaf','#4caf7a'), x,4.65+y,z, g));
     clickable(g,'LP 선반 · 플레이리스트 열기', ()=>{ $('pl').hidden=false; renderPL(); });
@@ -682,7 +685,7 @@ function updateNow(){ const t=nowPL&&nowPL.tracks[nowIdx];
   const a=$('yt'); a.href=t?ytUrl(t):'https://www.youtube.com'; }
 function step(d){ if(!nowPL||!nowPL.tracks.length) return; nowIdx=(nowIdx+d+nowPL.tracks.length)%nowPL.tracks.length; progress=0; loadNow(true); if(!$('pl').hidden) renderPL(); djSend(); }
 $('prev').addEventListener('click',()=>step(-1)); $('next').addEventListener('click',()=>step(1));
-$('pl-open').addEventListener('click',()=>{ const p=$('pl'); p.hidden=!p.hidden; if(!p.hidden) renderPL(); });
+$('pl-open').addEventListener('click',()=>{ const p=$('pl'); p.hidden=!p.hidden; $('find').hidden=true; if(!p.hidden) renderPL(); });
 function setPlaylists(list){ const cur=nowPL&&nowPL.id, curIdx=nowIdx, open=openPL&&openPL.id; playlists=list.sort((a,b)=>(a.order||0)-(b.order||0));
   openPL=playlists.find(p=>p.id===open)||null; const np=playlists.find(p=>p.id===cur);
   if(np){ const same=np.tracks[curIdx]&&nowPL.tracks[curIdx]&&np.tracks[curIdx].y===nowPL.tracks[curIdx].y; nowPL=np; nowIdx=Math.min(curIdx,Math.max(0,np.tracks.length-1)); if(same) updateNow(); else loadNow(playing); } else startPL(featured());
@@ -765,7 +768,8 @@ function followDj(){ const d=rt.dj; if(!d||!ytReady||!$('dj-follow').checked) re
 let userTapped=false; addEventListener('pointerdown',()=>{ userTapped=true; },{once:true,capture:true});
 
 // chat
-$('chat').addEventListener('submit',e=>{ e.preventDefault(); const i=$('chat-in'); const text=i.value.trim(); if(!text) return; i.value=''; sayOn(me,text); rt.send('say',{text:text.slice(0,40)}); i.blur(); });
+$('chat-in').addEventListener('keydown',e=>{ if(e.key==='Escape') e.target.blur(); });
+$('chat').addEventListener('submit',e=>{ e.preventDefault(); const i=$('chat-in'); const text=i.value.trim(); if(!text){ i.blur(); return; } i.value=''; sayOn(me,text); rt.send('say',{text:text.slice(0,40)}); i.blur(); });
 
 // ---------- walking with WASD / arrow keys ----------
 const walk={keys:new Set(), moving:false, vel:0};
@@ -785,13 +789,15 @@ function blocked(x,z){ const R=.32; if(Math.abs(x)>INNER-R||Math.abs(z)>INNER-R)
 function standUp(){ const w=new THREE.Vector3(); me.g.getWorldPosition(w); const item=me.sitting; const c=item?item.position:w;
   for(let r=1;r<4;r+=.25) for(let a=0;a<16;a++){ const ang=a/16*Math.PI*2+Math.PI/2, x=c.x+Math.sin(ang)*r, z=c.z+Math.cos(ang)*r; if(!blocked(x,z)){ standAt(me,x,z,ang); walkedOff=true; sendMv(true); return true; } }
   return false; }
+function updateSitBtn(){ const b=$('sit'); if(!b) return; const t=me.sitting?'🧍 일어나기 (E)':'🪑 앉기 (E)'; if(b.textContent!==t) b.textContent=t; }
+function seatTaken(item){ return hostA&&hostA.sitting===item&&hostA.g.visible&&item.userData.type!=='sofa'; }
+function sitHere(item, point){ if(seatTaken(item)){ toast('그 자리에는 방 주인이 앉아 있어요'); return; } sitOn(me,item,point); sendMv(true); }
 function toggleSit(){ if(editing||dressing) return;
   if(me.sitting){ standUp(); return; }
   const p=me.g.position; let best=null, bd=2.2;
   movables.forEach(g=>{ if(!SEATS[g.userData.type]) return; const f=footprint(g); const dx=Math.max(f.x0-p.x,0,p.x-f.x1), dz=Math.max(f.z0-p.z,0,p.z-f.z1); const d=Math.hypot(dx,dz); if(d<bd){ bd=d; best=g; } });
   if(!best){ toast('앉을 곳이 가까이 없어요 · 빈백·소파·스툴 가까이에서 E'); return; }
-  if(hostA&&hostA.sitting===best&&hostA.g.visible&&best.userData.type!=='sofa'){ toast('그 자리에는 방 주인이 앉아 있어요'); return; }
-  sitOn(me,best,p.clone()); sendMv(true); }
+  sitHere(best,p.clone()); }
 const tmpV=new THREE.Vector3();
 function updateWalk(dt){
   const k=walk.keys; let ix=(k.has('d')||k.has('arrowright')?1:0)-(k.has('a')||k.has('arrowleft')?1:0), iz=(k.has('s')||k.has('arrowdown')?1:0)-(k.has('w')||k.has('arrowup')?1:0);
@@ -927,6 +933,40 @@ $('auth-form').addEventListener('submit',async e=>{ e.preventDefault(); const mo
   addEventListener('hashchange',route); await route();
 })();
 
+
+// ---------- find other rooms ----------
+let findSeq=0, findT=null;
+function openFind(){ const f=$('find'); f.hidden=!f.hidden; if(!f.hidden){ $('pl').hidden=true; $('find-q').value=''; $('find-q').focus(); searchRooms(''); } }
+$('find-open').addEventListener('click',openFind);
+$('find-x').addEventListener('click',()=>$('find').hidden=true);
+$('find-q').addEventListener('input',e=>{ clearTimeout(findT); findT=setTimeout(()=>searchRooms(e.target.value),250); });
+$('find-q').addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('find').hidden=true; e.target.blur(); } if(e.key==='Enter'){ const b=$('find-list').querySelector('button'); if(b) b.click(); } });
+async function searchRooms(q){
+  const list=$('find-list'), seq=++findSeq;
+  if(!sb){ list.innerHTML='<li class="empty">서버에 연결되지 않아서 찾을 수 없어요</li>'; return; }
+  list.innerHTML='<li class="empty">찾는 중…</li>';
+  const clean=q.replace(/[^0-9a-zA-Z_가-힣ㄱ-ㅎㅏ-ㅣ ]/g,'').trim().slice(0,20);
+  let profs=[];
+  if(clean){ const r=await sb.from('lr_profiles').select('id,handle,display_name,avatar').or(`handle.ilike.%${clean}%,display_name.ilike.%${clean}%`).limit(12); profs=r.data||[]; }
+  else { const r=await sb.from('lr_rooms').select('owner_id,updated_at').order('updated_at',{ascending:false}).limit(12); const ids=(r.data||[]).map(x=>x.owner_id);
+    if(ids.length){ const p=await sb.from('lr_profiles').select('id,handle,display_name,avatar').in('id',ids); profs=ids.map(id=>(p.data||[]).find(x=>x.id===id)).filter(Boolean); } }
+  if(seq!==findSeq) return;
+  const vis=new Set(); if(profs.length){ const r=await sb.from('lr_rooms').select('owner_id').in('owner_id',profs.map(p=>p.id)); (r.data||[]).forEach(x=>vis.add(x.owner_id)); }
+  if(seq!==findSeq) return;
+  list.innerHTML='';
+  if(!profs.length){ list.innerHTML='<li class="empty">'+(clean?'"'+clean.replace(/[<>&]/g,'')+'"(으)로 찾은 방이 없어요':'아직 구경할 방이 없어요')+'</li>'; return; }
+  if(!clean){ const h=document.createElement('li'); h.className='plfoot'; h.textContent='최근에 꾸민 방'; list.appendChild(h); }
+  profs.forEach(p=>{ const li=document.createElement('li'); const b=document.createElement('button'); const open=vis.has(p.id); const here=view.host&&view.host.id===p.id;
+    b.innerHTML='<span class="face"></span><span class="who"><b></b><small></small></span><span class="tag"></span>';
+    const face=b.querySelector('.face'); face.style.background=(p.avatar&&p.avatar.shirt)||'#c9b6ff'; face.textContent=(p.display_name||p.handle).slice(0,1);
+    b.querySelector('b').textContent=p.display_name; b.querySelector('small').textContent='@'+p.handle+(uid()===p.id?' · 내 방':'');
+    const tag=b.querySelector('.tag'); tag.textContent= here?'지금 여기':(open?'들어가기 →':'🔒 친구 공개'); if(here) tag.classList.add('here');
+    b.addEventListener('click',async()=>{ if(!open&&uid()!==p.id){
+      if(!uid()){ toast(p.display_name+'님의 방은 친구에게만 공개돼 있어요 · 로그인하고 팔로우해보세요'); return; }
+      const r=await sb.from('lr_follows').upsert({follower_id:uid(), followee_id:p.id},{ignoreDuplicates:true});
+      toast(r.error?'팔로우하지 못했어요':p.display_name+'님을 팔로우했어요 · 상대도 나를 팔로우하면 방에 들어갈 수 있어요'); return; } $('find').hidden=true; go(p.handle); });
+    li.appendChild(b); list.appendChild(li); }); }
+
 // ---------- picking ----------
 const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(), tip=$('tip'), floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 let downAt=null;
@@ -953,6 +993,7 @@ canvas.addEventListener('pointermove',ev=>{
     drag.g.position.copy(p); drag.g.position.y=.15; drag.ok=valid(drag.g,p,drag.g.rotation.y); showFP(drag.g,drag.ok); canvas.style.cursor='grabbing'; tip.classList.remove('show'); return; }
   if(editing){ const g=pickMovable(ev); canvas.style.cursor=g?'grab':'default';
     if(g){ tip.textContent=cat(g).name+(g.userData.wall?' · 벽 위에서 끌어 옮기기':' · 끌어서 옮기기')+(g.userData.photo?' · 사진 파일을 끌어다 놓아도 돼요':' · 눌러서 색 바꾸기'); tip.style.left=ev.clientX+'px'; tip.style.top=ev.clientY+'px'; tip.classList.add('show'); } else tip.classList.remove('show'); return; }
+  const sg=!pick(ev)&&pickMovable(ev); if(sg&&SEATS[sg.userData.type]){ tip.textContent=CATALOG[sg.userData.type].name+' · 눌러서 앉기'; tip.style.left=ev.clientX+'px'; tip.style.top=ev.clientY+'px'; tip.classList.add('show'); canvas.style.cursor='pointer'; return; }
   const h=pick(ev); if(h){ tip.textContent=h.name; tip.style.left=ev.clientX+'px'; tip.style.top=ev.clientY+'px'; tip.classList.add('show'); canvas.style.cursor='pointer'; } else { tip.classList.remove('show'); canvas.style.cursor='grab'; } });
 canvas.addEventListener('pointerup',ev=>{
   if(drag&&drag.wall){ const g=drag.g; if(!drag.ok){ drag.startParent.add(g); g.position.copy(drag.start); toast('창문·TV나 다른 장식과 겹쳐서 원래 자리로 돌아갔어요'); } g.position.z=T/2; drag=null; controls.enabled=true; select(g); return; }
@@ -960,7 +1001,8 @@ canvas.addEventListener('pointerup',ev=>{
   if(!downAt) return; const moved=Math.hypot(ev.clientX-downAt[0],ev.clientY-downAt[1]); downAt=null; if(moved>5) return;
   if(editing){ if(pickMovable(ev)) return; setRay(ev); const hit=ray.intersectObjects(surfMeshes,false).find(h=>isShown(h.object));
     if(hit) selectSurface(hit.object===floorMesh?'floor':'wall', hit.point); else select(null); return; }
-  const h=pick(ev); if(h) h.act(); });
+  const h=pick(ev); if(h){ h.act(); return; }
+  const g=pickMovable(ev); if(g&&SEATS[g.userData.type]){ const hit=ray.intersectObject(g,true)[0]; sitHere(g, hit?hit.point:g.position.clone()); } });
 
 // ---------- loop ----------
 function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); cssRenderer.setSize(w,h); camera.aspect=w/h; camera.fov = w<760 ? 48 : 35; camera.updateProjectionMatrix(); }
@@ -987,7 +1029,7 @@ function frame(now){
   if((tvTick%1)<dt){ const d=new Date(); movables.forEach(g=>{ const hd=g.userData.hands; if(!hd) return; hd[0].rotation.z=-((d.getHours()%12)+d.getMinutes()/60)/12*Math.PI*2; hd[1].rotation.z=-(d.getMinutes()+d.getSeconds()/60)/60*Math.PI*2; }); }
   if(selected){ selBox.setFromObject(selected); } if(selected||surface) placeTool();
   if((tvTick+=dt)>.1){ tvTick=0; drawTV(now); }
-  updateTVLayer();
+  updateTVLayer(); updateSitBtn();
   renderer.render(scene,camera); cssRenderer.render(cssScene,camera);
   requestAnimationFrame(frame);
 }

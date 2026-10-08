@@ -171,7 +171,9 @@ body:not(.ro) .djf{display:none}
 body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body.editing .visit,body.dressing .visit{display:none}
 .pad{position:absolute;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:none;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:6px;padding:8px}
 .pad button{font:inherit;font-size:18px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--ink);touch-action:none}
-.pad .up{grid-column:2}.pad .sitb{grid-column:3;grid-row:1;font-size:12px}
+.pad .up{grid-column:2}
+.sitbtn{position:absolute;left:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));padding:12px 16px;color:var(--ink)}
+body.editing .sitbtn,body.dressing .sitbtn{display:none}
 @media (pointer:coarse){ .pad{display:grid} }
 .auth{position:fixed;inset:0;z-index:10;background:rgba(8,5,18,.6);display:grid;place-items:center;padding:16px}
 .auth form{width:min(380px,100%);padding:22px;display:flex;flex-direction:column;gap:10px}
@@ -182,7 +184,17 @@ body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body
 .auth .err{color:var(--bad);font-size:12px;min-height:1em}
 .auth .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .auth .link{font:inherit;font-size:12px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
-@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chat{width:calc(100% - 32px);bottom:calc(112px + env(safe-area-inset-bottom,0px))} .pad{bottom:calc(166px + env(safe-area-inset-bottom,0px))} }
+@media (max-width:760px){ .sitbtn{left:auto;right:16px;bottom:calc(166px + env(safe-area-inset-bottom,0px))} .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chat{width:calc(100% - 32px);bottom:calc(112px + env(safe-area-inset-bottom,0px))} .pad{bottom:calc(166px + env(safe-area-inset-bottom,0px))} }
+.findq{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
+.findq:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.rooms{gap:6px}
+.rooms li{padding:0}
+.rooms button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;color:var(--ink);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:9px 10px;cursor:pointer}
+.rooms button:hover{border-color:var(--accent)}
+.rooms .face{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;color:var(--on-accent);font-size:13px}
+.rooms .who{flex:1;min-width:0}.rooms .who b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rooms .who small{color:var(--mute);font-size:12px}
+.rooms .tag{font-size:11px;color:var(--mute);white-space:nowrap}
+.rooms .here{color:var(--accent)}
 </style>
 </head><body>
 
@@ -192,6 +204,7 @@ body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body
   <div class="visit glass" id="visit" hidden></div>
   <div class="hint glass" id="hint"></div>
   <div class="themes glass" role="group" aria-label="방 꾸미기">
+    <button id="find-open" class="chip">🔍 방 찾기</button>
     <span class="acct" id="acct"></span>
     <button id="dress" class="chip">☺ 캐릭터 꾸미기</button>
     <button id="edit">✎ 방 꾸미기</button>
@@ -200,6 +213,12 @@ body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body
     <button class="chip" id="v-reset">⟲ 기본 시점</button>
     <button class="chip" id="v-top">⬒ 위에서 보기</button>
     <button class="chip" id="v-spin" aria-pressed="true">↻ 자동 회전 켜짐</button>
+  </div>
+  <div class="panel glass" id="find" hidden>
+    <button class="btn ghost x" id="find-x" aria-label="닫기">✕</button>
+    <h3>방 찾기</h3><p>아이디나 닉네임으로 다른 사람의 리스닝 룸을 찾아요</p>
+    <input id="find-q" class="findq" placeholder="예: mina 또는 미나" autocomplete="off" aria-label="방 검색">
+    <ol class="rooms" id="find-list"></ol>
   </div>
   <div class="panel glass" id="pl" hidden>
     <button class="btn ghost x" id="pl-x" aria-label="닫기">✕</button>
@@ -258,7 +277,8 @@ body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body
 <button class="tapplay" id="tapplay" hidden>▶ 눌러서 음악 듣기</button>
 <div class="ui2">
   <form class="chat glass" id="chat"><input id="chat-in" maxlength="40" placeholder="말하기 · Enter" autocomplete="off" aria-label="채팅"></form>
-  <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button class="sitb" id="sit">앉기</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
+  <button class="chip sitbtn glass" id="sit">🪑 앉기 (E)</button>
+  <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
 </div>
 <div class="auth" id="auth" hidden><form class="glass" id="auth-form" novalidate>
   <div class="row"><h2 id="auth-title">로그인</h2><button type="button" class="btn ghost" id="auth-x" aria-label="닫기">✕</button></div>
