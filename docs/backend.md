@@ -48,7 +48,8 @@ Supabase `free` 프로젝트(`qidhrwbrflwisgumccpe`, 서울)에 두 마이그레
 
 - RLS 판단용 함수는 API로 직접 부를 수 없도록 `lr_private` 스키마에 두었습니다.
 - 실제 DB에서도 같은 확인을 했습니다. 테스트 회원 두 명으로 확인한 뒤 되돌려서 남은 데이터는 없습니다.
-- **회원가입할 때 주의:** 회원(auth) 정보를 다른 앱과 같이 쓰기 때문에, 그 앱의 가입 트리거가 `username` 값을 요구합니다. 가입할 때 `options.data.username`을 꼭 넘겨야 합니다. 안 넘기면 가입이 실패합니다.
+- **회원가입할 때 주의:** 회원(auth) 정보를 다른 앱과 같이 쓰기 때문에, 그 앱의 가입 트리거가 `username` 값을 씁니다. 이메일 가입은 `options.data.username`을 넘깁니다. 구글 로그인처럼 `username`이 없으면 트리거가 이메일 앞부분으로 만들어 넣습니다(`20261008000200_signup_username_fallback.sql`).
+- **구글 로그인:** Supabase 대시보드에서 Google 공급자를 켜고(Client ID/Secret), Redirect URLs에 사이트 주소를 넣어야 동작합니다.
 - **남은 보안 권고 1건:** 유출된 비밀번호 차단 기능이 꺼져 있습니다. 프로젝트 전체(다른 앱 포함) 설정이라 직접 바꾸지 않았습니다. Supabase 대시보드 → Authentication → Policies에서 켤 수 있습니다.
 
 ## 저장소에 없는 것
