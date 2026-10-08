@@ -706,11 +706,14 @@ let yt=null, ytReady=false, ytWant=null;
 window.onYouTubeIframeAPIReady=()=>{ yt=new YT.Player('ytp',{ width:1280, height:720, playerVars:{controls:0, rel:0, playsinline:1, modestbranding:1, iv_load_policy:3, disablekb:1, origin:location.origin},
   events:{ onReady:()=>{ ytReady=true; if(ytWant) loadNow(ytWant.auto); },
     onStateChange:e=>{ const S=YT.PlayerState;
-      if(e.data===S.PLAYING){ setPlaying(true); fillTitle(); }
+      if(e.data===S.PLAYING){ setPlaying(true); fillTitle(); ytFailed.clear(); }
       else if(e.data===S.PAUSED){ setPlaying(false); }
       else if(e.data===S.ENDED){ if(view.isOwner||!rt.djActive()) step(1); }
       djSend(); },
-    onError:()=>{ toast('이 영상은 방에서 재생할 수 없어요 · 다음 곡으로 넘어가요'); setTimeout(()=>step(1),1500); } } }); };
+    onError:()=>{ const t=nowPL&&nowPL.tracks[nowIdx]; if(t) ytFailed.add(t.y);
+      if(!nowPL||nowPL.tracks.every(x=>ytFailed.has(x.y))){ setPlaying(false); toast('이 플레이리스트의 영상은 방에서 재생할 수 없어요 · 유튜브에서 다른 사이트 재생을 막았거나 끝난 라이브일 수 있어요'); return; }
+      toast('이 영상은 방에서 재생할 수 없어요 · 다음 곡으로 넘어가요'); setTimeout(()=>step(1),1500); } } }); };
+const ytFailed=new Set();
 function setPlaying(on){ playing=on; playBtn.textContent=on?'❚❚':'▶'; $('tapplay').hidden=true; }
 function loadNow(autoplay, startAt=0){ updateNow(); const t=nowPL&&nowPL.tracks[nowIdx];
   if(!ytReady){ ytWant={auto:autoplay}; return; }
@@ -905,7 +908,7 @@ async function openRoom(handle){
   const L=rr.data.layout; lastRoomJSON=JSON.stringify(L); applyRoom(L&&L.floor&&L.floor.length?L:DEFAULT_LAYOUT);
   setReadOnly(!view.isOwner); renderHeader(); playlists=[]; nowPL=null; await loadPlaylists(pr.data.id); joinRoomChannel(rr.data.id); }
 function openDemo(){ view.demo=true; view.isOwner=true; view.host=null; view.room=null; setReadOnly(false); $('dress').hidden=false; renderHeader();
-  setPlaylists([{id:'example', name:'새벽 감성 로파이 (예시)', order:0, featured:true, tracks:[{k:'v', y:'jfKfPfyJRdk', title:'lofi hip hop radio — beats to relax/study to'}]}]); }
+  setPlaylists([{id:'example', name:'새벽 감성 로파이 (예시)', order:0, featured:true, tracks:[{k:'v', y:'rFZHOHl-L8A', title:'lofi hip hop radio — beats to relax/study to'}]}]); }
 async function ensureProfile(){ const u=view.session.user;
   let r=await sb.from('lr_profiles').select('id,handle,display_name,avatar').eq('id',u.id).maybeSingle(); if(r.data){ view.me=r.data; return; }
   const meta=u.user_metadata||{}; let handle=(meta.lr_handle||meta.username||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20); if(handle.length<3) handle='user_'+u.id.slice(0,6);
