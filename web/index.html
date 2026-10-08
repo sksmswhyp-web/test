@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>lofi.room</title>
+<meta name="description" content="유튜브로 같이 듣는 3D 리스닝 룸">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%99%AA%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+*{box-sizing:border-box}
+/* Layout: full-bleed 3D room canvas; small glass controls float on the corners so the room stays the hero. Single night look by choice. */
+:root{
+  --bg:#1a1430; --ink:#f4eefc; --mute:#b6a9d6; --glass:rgba(30,22,58,.74); --line:rgba(255,255,255,.14);
+  --accent:#ffb86b; --pop:#ff8ad1; --ok:#3ddc97; --bad:#ff6b6b; --on-accent:#22152f;
+  --display:"Jua","Noto Sans KR",system-ui,sans-serif; --body:"Noto Sans KR",system-ui,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden;transition:background .6s}
+#c{position:fixed;inset:0;display:block;outline:none;touch-action:none;z-index:1}
+.css3d{position:fixed!important;inset:0;z-index:0;pointer-events:none}
+.ytwrap{width:1280px;height:720px;background:#000}
+.ytwrap iframe{width:1280px;height:720px;border:0;display:block}
+.ui{position:fixed;z-index:2;pointer-events:none;inset:0}
+.ui > *{pointer-events:auto}
+.glass{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:18px}
+.brand{position:absolute;left:16px;top:calc(16px + env(safe-area-inset-top,0px));padding:10px 16px 10px 12px;display:flex;gap:10px;align-items:center}
+.brand .lg{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--pop));display:grid;place-items:center;color:var(--on-accent);font-family:var(--display);font-size:20px}
+.brand b{font-family:var(--display);font-weight:400;font-size:19px;display:block;line-height:1.1}
+.brand span{font-size:12px;color:var(--mute)}
+.themes{position:absolute;right:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;gap:4px;padding:6px;align-items:center}
+.themes button,.chip{font:inherit;font-size:13px;color:var(--mute);background:transparent;border:0;border-radius:12px;padding:9px 14px;cursor:pointer}
+.themes button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.themes .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.themes #edit{color:var(--ink);font-weight:700;background:linear-gradient(135deg,#9b7bff,var(--pop))}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{position:absolute;left:50%;transform:translateX(-50%);top:calc(16px + env(safe-area-inset-top,0px));padding:9px 16px;font-size:13px;color:var(--mute);white-space:nowrap;display:flex;align-items:center;gap:10px}
+.hint b{color:var(--ink);font-weight:500}
+.hint kbd{font:inherit;font-size:11px;background:rgba(255,255,255,.12);color:var(--ink);border-radius:5px;padding:1px 6px}
+.hint .mode{background:var(--accent);color:var(--on-accent);font-weight:700;border-radius:8px;padding:2px 8px;font-size:12px}
+.side{position:absolute;left:16px;top:calc(84px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;padding:6px}
+.bottom{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(760px,calc(100% - 32px))}
+.player{padding:12px 16px 12px 12px;display:flex;align-items:center;gap:14px}
+.th{width:96px;height:56px;border-radius:10px;flex:none;background:linear-gradient(180deg,#2d1b5e,#7b3f8f 55%,var(--pop));position:relative}
+.th::after{content:"";position:absolute;left:7px;top:7px;width:16px;height:11px;border-radius:3px;background:#ff3d3d}
+.info{min-width:0;flex:1}
+.info b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info span{font-size:12px;color:var(--mute)}
+.bar{height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin-top:8px;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;width:0;border-radius:2px;background:linear-gradient(90deg,var(--pop),var(--accent))}
+.btn{width:46px;height:46px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);font-size:18px;cursor:pointer;flex:none;display:grid;place-items:center}
+.btn.ghost{background:rgba(255,255,255,.1);color:var(--ink);width:36px;height:36px;font-size:14px;border-radius:10px}
+.friends{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ok);white-space:nowrap}
+.friends i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+/* inventory drawer */
+.drawer{padding:12px 14px 14px}
+.dh{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dh b{font-family:var(--display);font-weight:400;font-size:18px}
+.dtabs{display:flex;gap:4px;background:rgba(0,0,0,.25);border-radius:12px;padding:3px;flex:none}
+.dtabs button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--mute);border-radius:9px;padding:7px 12px;cursor:pointer;font-family:var(--display)}
+.dtabs button[aria-selected="true"]{background:rgba(255,255,255,.14);color:var(--ink)}
+.dh span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dh span{font-size:12px;color:var(--mute)}
+.dh .acts{margin-left:auto;display:flex;gap:8px;flex:none}
+.pill{white-space:nowrap}
+.pill{font:inherit;font-size:13px;font-weight:700;border:0;border-radius:12px;padding:9px 16px;cursor:pointer;background:rgba(255,255,255,.1);color:var(--ink)}
+.pill.save{background:var(--accent);color:var(--on-accent)}
+.items{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.item{flex:none;width:96px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:14px;padding:6px 6px 8px;color:var(--ink);font:inherit;font-size:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.item img{width:80px;height:68px;object-fit:contain}
+.item:hover{border-color:var(--accent);background:rgba(255,184,107,.1)}
+.item small{color:var(--mute);font-size:10px}
+/* selection toolbar */
+.tool{position:fixed;z-index:4;transform:translate(-50%,-100%);display:flex;align-items:center;gap:4px;padding:6px;white-space:nowrap}
+.tool .nm{font-size:12px;font-weight:700;color:var(--accent);padding:0 8px 0 6px;border-right:1px solid var(--line)}
+.tool button{font:inherit;font-size:12px;color:var(--ink);background:transparent;border:0;border-radius:9px;padding:7px 9px;cursor:pointer}
+.tool button:hover{background:rgba(255,255,255,.1)}
+.tool .del{color:var(--bad)}
+.parts{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:10px;padding:2px}
+.parts:empty{display:none}
+.parts button{padding:5px 9px!important;font-size:11px!important;color:var(--mute)!important}
+.parts button[aria-pressed="true"]{background:rgba(255,255,255,.16)!important;color:var(--ink)!important;font-weight:700}
+#swatches{display:flex;gap:4px;margin:0 2px}
+.sw.custom{position:relative;overflow:hidden;cursor:pointer;background:conic-gradient(#ff6b6b,#ffd166,#06d6a0,#4cc9f0,#b388eb,#ff6b6b);display:inline-block;flex:none}
+.sw.custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.sw{width:22px;height:22px;padding:0!important;border-radius:50%!important;border:2px solid rgba(255,255,255,.25)!important}
+.tip{position:fixed;z-index:3;pointer-events:none;padding:7px 12px;font-size:12px;border-radius:12px;transform:translate(-50%,-140%);white-space:nowrap;opacity:0;transition:opacity .15s}
+.tip.show{opacity:1}
+.toast{position:fixed;z-index:5;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-10px);padding:10px 18px;font-size:13px;font-weight:700;opacity:0;transition:.25s;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.panel{position:absolute;right:16px;top:calc(84px + env(safe-area-inset-top,0px));width:300px;padding:16px}
+.panel h3{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:20px}
+.panel p{margin:0 0 10px;font-size:12px;color:var(--mute)}
+.panel ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.panel li{display:flex;gap:10px;align-items:center}
+.panel li em{width:40px;height:26px;border-radius:6px;flex:none}
+.panel li.now{color:var(--accent);font-weight:700}
+.panel .x{position:absolute;right:10px;top:10px}
+.panel{width:360px;max-height:calc(100% - 210px);overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.panel p{margin:0}
+.plchips{display:flex;flex-wrap:wrap;gap:6px}
+.plchips button{font:inherit;font-size:12px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer}
+.plchips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.plhead{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.plhead input{flex:1;min-width:0;font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.plhead button,.trk button{font:inherit;font-size:12px;color:var(--ink);background:rgba(255,255,255,.08);border:0;border-radius:9px;padding:6px 9px;cursor:pointer}
+.plhead .feat[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.plhead .delpl{color:var(--bad)}
+.panel ol{gap:4px}
+.trk{display:flex;gap:8px;align-items:center;padding:6px;border-radius:10px}
+.trk.now{background:rgba(255,184,107,.12)}
+.trk .n{width:18px;text-align:center;color:var(--mute);font-size:12px;font-variant-numeric:tabular-nums}
+.trk .t{flex:1;min-width:0}.trk .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.trk .t small{color:var(--mute);font-size:11px}
+.trk.now .t b{color:var(--accent)}
+.trk .x2{color:var(--bad)}
+.empty{font-size:13px;color:var(--mute);padding:10px;border:1px dashed var(--line);border-radius:12px;text-align:center}
+.pladd{display:grid;grid-template-columns:1fr auto;gap:6px}
+.pladd input{font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+.pladd #pl-url{grid-column:1/-1}
+.pladd input:focus-visible,.plhead input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pladd .err{grid-column:1/-1;color:var(--bad);font-size:12px;min-height:0}
+.plfoot{font-size:11px;color:var(--mute)}
+.ro [data-edit]{display:none!important}
+a.btn{text-decoration:none}
+.player .btn.ghost{flex:none}
+.sizerow{flex-basis:100%;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute);padding:4px 8px 2px;border-top:1px solid var(--line);margin-top:4px}
+.sizerow label{display:flex;align-items:center;gap:6px}
+.sizerow input{width:96px;accent-color:var(--accent)}
+.sizerow output{font-variant-numeric:tabular-nums;color:var(--ink)}
+.tool{flex-wrap:wrap;max-width:min(860px,calc(100vw - 32px))}
+.dress{position:fixed;z-index:4;right:16px;top:calc(84px + env(safe-area-inset-top,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:340px;padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.dhd b{font-family:var(--display);font-weight:400;font-size:22px;display:block}
+.dhd span{font-size:12px;color:var(--mute)}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--mute)}
+.fld input{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.fld input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sec .lab{font-size:12px;color:var(--mute);margin-bottom:8px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{font:inherit;font-size:13px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer}
+.opts button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.opts button .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.4)}
+.pal{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pal .sw{width:30px;height:30px}
+.dft{margin-top:auto;display:flex;gap:8px}.dft .pill{flex:1}
+body.dressing .bottom,body.dressing .side,body.dressing .hint{display:none}
+@media (max-width:760px){
+  .dress{left:16px;right:16px;width:auto;top:auto;height:52vh}
+  .hint{top:auto;bottom:calc(108px + env(safe-area-inset-bottom,0px));font-size:12px}
+  body.editing .hint{bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+  .themes{top:calc(76px + env(safe-area-inset-top,0px))}
+  .side,.friends,.hint .long,#prev,#yt{display:none}
+  .th{width:64px;height:40px}
+  .panel{left:16px;right:16px;width:auto;top:calc(136px + env(safe-area-inset-top,0px))}
+  .dh span{display:none}
+  .tool{flex-wrap:wrap;max-width:calc(100vw - 32px);justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.ui2{position:fixed;inset:0;z-index:2;pointer-events:none}.ui2>*{pointer-events:auto}
+.acct{display:flex;gap:6px;align-items:center}
+.chip.strong{background:var(--accent);color:var(--on-accent);font-weight:700}
+.visit{position:absolute;left:16px;top:calc(84px + env(safe-area-inset-top,0px));display:flex;gap:6px;padding:6px;align-items:center;flex-wrap:wrap}
+.visit select{font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.side{top:calc(140px + env(safe-area-inset-top,0px))}
+.tapplay{position:fixed;z-index:3;left:50%;top:44%;transform:translate(-50%,-50%);font:inherit;font-family:var(--display);font-size:20px;padding:16px 26px;border-radius:999px;border:0;background:var(--accent);color:var(--on-accent);cursor:pointer;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.djf{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mute);white-space:nowrap}
+body:not(.ro) .djf{display:none}
+.chat{position:absolute;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(280px,calc(100% - 32px));display:flex;gap:6px;padding:6px}
+.chat input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.chat input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+body.editing .chat,body.dressing .chat,body.editing .pad,body.dressing .pad,body.editing .visit,body.dressing .visit{display:none}
+.pad{position:absolute;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));display:none;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px);gap:6px;padding:8px}
+.pad button{font:inherit;font-size:18px;border:0;border-radius:12px;background:rgba(255,255,255,.12);color:var(--ink);touch-action:none}
+.pad .up{grid-column:2}.pad .sitb{grid-column:3;grid-row:1;font-size:12px}
+@media (pointer:coarse){ .pad{display:grid} }
+.auth{position:fixed;inset:0;z-index:10;background:rgba(8,5,18,.6);display:grid;place-items:center;padding:16px}
+.auth form{width:min(380px,100%);padding:22px;display:flex;flex-direction:column;gap:10px}
+.auth h2{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:24px}
+.auth label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--mute)}
+.auth input{font:inherit;font-size:15px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.auth input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.auth .err{color:var(--bad);font-size:12px;min-height:1em}
+.auth .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.auth .link{font:inherit;font-size:12px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
+@media (max-width:760px){ .visit{top:calc(128px + env(safe-area-inset-top,0px))} .chat{width:calc(100% - 32px);bottom:calc(112px + env(safe-area-inset-bottom,0px))} .pad{bottom:calc(166px + env(safe-area-inset-bottom,0px))} }
+</style>
+</head><body>
+
+<canvas id="c" tabindex="0" aria-label="3D 리스닝 룸. 드래그해서 회전, 스크롤로 확대"></canvas>
+<div class="ui">
+  <div class="brand glass"><div class="lg">♪</div><div><b id="room-title">lofi.room</b><span id="cloud">불러오는 중…</span></div></div>
+  <div class="visit glass" id="visit" hidden></div>
+  <div class="hint glass" id="hint"></div>
+  <div class="themes glass" role="group" aria-label="방 꾸미기">
+    <span class="acct" id="acct"></span>
+    <button id="dress" class="chip">☺ 캐릭터 꾸미기</button>
+    <button id="edit">✎ 방 꾸미기</button>
+  </div>
+  <div class="side glass">
+    <button class="chip" id="v-reset">⟲ 기본 시점</button>
+    <button class="chip" id="v-top">⬒ 위에서 보기</button>
+    <button class="chip" id="v-spin" aria-pressed="true">↻ 자동 회전 켜짐</button>
+  </div>
+  <div class="panel glass" id="pl" hidden>
+    <button class="btn ghost x" id="pl-x" aria-label="닫기">✕</button>
+    <h3>플레이리스트</h3><p id="pl-sub">LP 선반 = 내 플레이리스트 · 대표 플레이리스트는 방문자에게 들려줘요</p>
+    <div class="plchips" id="pl-chips"></div>
+    <div class="plhead" id="pl-head"></div>
+    <ol id="pl-list"></ol>
+    <form class="pladd" id="pl-add" novalidate>
+      <input id="pl-url" placeholder="유튜브 링크 붙여넣기" autocomplete="off" aria-label="유튜브 링크">
+      <input id="pl-title" placeholder="곡 제목 (선택)" autocomplete="off" aria-label="곡 제목">
+      <button class="pill save" type="submit">추가</button>
+      <small class="err" id="pl-err" aria-live="polite"></small>
+    </form>
+    <div class="plfoot"><span id="pl-status"></span></div>
+  </div>
+  <div class="bottom">
+    <div class="player glass" id="player">
+      <div class="th"></div>
+      <div class="info"><b id="song">Midnight City — lofi hip hop mix</b><span id="song-sub">플레이리스트에 곡을 추가해보세요</span><div class="bar"><i id="prog"></i></div></div>
+      <div class="friends"><i></i><span id="who">지금은 혼자 듣는 중</span></div>
+      <label class="djf" title="방 주인이 트는 곡을 같이 들어요"><input type="checkbox" id="dj-follow" checked>DJ 따라 듣기</label>
+      <button class="btn ghost" id="prev" aria-label="이전 곡">⏮</button>
+      <button class="btn" id="play" aria-label="재생 / 일시정지">❚❚</button>
+      <button class="btn ghost" id="next" aria-label="다음 곡">⏭</button>
+      <a class="btn ghost yt" id="yt" href="https://www.youtube.com" target="_blank" rel="noopener" aria-label="유튜브에서 열기" title="유튜브에서 열기">▶</a>
+      <button class="btn ghost" id="pl-open" aria-label="플레이리스트" title="플레이리스트">☰</button>
+    </div>
+    <div class="drawer glass" id="drawer" hidden>
+      <div class="dh"><div class="dtabs" role="tablist"><button role="tab" id="tab-floor" aria-selected="true">바닥 가구</button><button role="tab" id="tab-wall" aria-selected="false">벽 장식</button></div><span id="dsub">누르면 방에 나타나요 · 가구를 눌러 색 바꾸기 · 벽과 바닥도 눌러보세요</span>
+        <div class="acts"><button class="pill" id="cancel">취소</button><button class="pill save" id="save">저장하기</button></div></div>
+      <div class="items" id="items"></div>
+      <div class="items" id="items-wall" hidden></div>
+    </div>
+  </div>
+</div>
+<div class="dress glass" id="dresser" hidden>
+  <div class="dhd"><b>캐릭터 꾸미기</b><span>바꾸는 대로 방 안의 내 캐릭터에 바로 보여요</span></div>
+  <label class="fld">닉네임<input id="nick" maxlength="10" value="나" autocomplete="off"></label>
+  <div class="sec"><div class="lab">헤어 스타일</div><div class="opts" id="styles"></div></div>
+  <div class="sec"><div class="lab">액세서리</div><div class="opts" id="accs"></div></div>
+  <div class="sec"><div class="lab">색 바꾸기</div><div class="opts parts2" id="cparts"></div>
+    <div class="pal" id="cpal"></div></div>
+  <div class="dft"><button class="pill" id="d-cancel">취소</button><button class="pill save" id="d-save">저장하기</button></div>
+</div>
+<div class="tool glass" id="tool" hidden>
+  <span class="nm" id="tool-name"></span>
+  <button id="rot" title="회전 (R)">↻ 회전</button>
+  <span class="parts" id="parts" role="group" aria-label="색을 바꿀 부분"></span>
+  <span id="swatches"></span>
+  <label class="sw custom" title="직접 고르기"><input type="color" id="custom" value="#ff8ad1" aria-label="색 직접 고르기"></label>
+  <button id="photo" hidden>🖼 사진 넣기</button>
+  <div class="sizerow" id="sizeRow" hidden><span>크기</span><label>가로 <input type="range" id="sz-w" min="0.5" max="3.6" step="0.1"></label><label>세로 <input type="range" id="sz-h" min="0.5" max="3.6" step="0.1"></label><output id="sz-out"></output></div>
+  <button class="del" id="del" title="치우기 (Del)">✕ 치우기</button>
+</div>
+<input type="file" id="photoInput" accept="image/*" hidden>
+<button class="tapplay" id="tapplay" hidden>▶ 눌러서 음악 듣기</button>
+<div class="ui2">
+  <form class="chat glass" id="chat"><input id="chat-in" maxlength="40" placeholder="말하기 · Enter" autocomplete="off" aria-label="채팅"></form>
+  <div class="pad glass" aria-label="캐릭터 이동"><button class="up" data-key="w" aria-label="앞으로">▲</button><button class="sitb" id="sit">앉기</button><button data-key="a" aria-label="왼쪽">◀</button><button data-key="s" aria-label="뒤로">▼</button><button data-key="d" aria-label="오른쪽">▶</button></div>
+</div>
+<div class="auth" id="auth" hidden><form class="glass" id="auth-form" novalidate>
+  <div class="row"><h2 id="auth-title">로그인</h2><button type="button" class="btn ghost" id="auth-x" aria-label="닫기">✕</button></div>
+  <label>이메일<input id="a-email" type="email" autocomplete="email" required></label>
+  <label>비밀번호 (6자 이상)<input id="a-pw" type="password" autocomplete="current-password" minlength="6" required></label>
+  <label class="su">아이디 · 내 방 주소가 돼요 (영어 소문자·숫자·_)<input id="a-handle" autocomplete="username" maxlength="20" pattern="[a-z0-9_]{3,20}"></label>
+  <label class="su">닉네임<input id="a-name" maxlength="20" autocomplete="nickname"></label>
+  <div class="err" id="auth-err" aria-live="polite"></div>
+  <button class="pill save" id="auth-submit" type="submit">로그인</button>
+  <button type="button" class="link" id="auth-switch">처음이에요 · 회원가입</button>
+</form></div>
+<div class="tip glass" id="tip"></div>
+<div class="toast glass" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS3DRenderer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="app.js"></script>
+<script src="https://www.youtube.com/iframe_api" async></script>
+</body></html>
