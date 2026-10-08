@@ -399,11 +399,78 @@ const WALLCAT = {
   clock:{name:'벽시계', size:[.9,.9], build(g){ const rim=cyl(.45,.45,.08, M('clockRim','#e07a8b'), 0,0,.04, g,48); rim.rotation.x=Math.PI/2; rim.userData.paint='main';
     const face=cyl(.39,.39,.09, M('clockFace','#f3efe6'), 0,0,.045, g,48); face.rotation.x=Math.PI/2; face.userData.paint='sub';
     const hands=[[.05,.24],[.035,.33]].map(([w,l])=>{ const p=new THREE.Group(); p.position.z=.1; g.add(p); box(w,l,.02, M('hand','#2a1f30'), 0,l/2-.04,0, p); return p; }); g.userData.hands=hands; }},
+  door:{name:'옆방 문', size:[1.3,2.5], floor:true, build(g){ buildDoor(g); }},
 };
-const WALL_INVENTORY=['frameL','frameP','frameS','neon','record','poster','wshelf','clock'];
-const PARTS_LATE = ({frameL:['틀','매트'], frameP:['틀','매트'], frameS:['틀','매트'], record:['틀','라벨'], clock:['테두리','시계판']});
+const WALL_INVENTORY=['door','frameL','frameP','frameS','neon','record','poster','wshelf','clock'];
+const PARTS_LATE = ({frameL:['틀','매트'], frameP:['틀','매트'], frameS:['틀','매트'], record:['틀','라벨'], clock:['테두리','시계판'], door:['문틀','문']});
 const wallItems=[];
 function sizeOf(g){ return g.userData.size||WALLCAT[g.userData.type].size; }
+// ---------- next-door rooms: a door on the wall that leads to a friend's room ----------
+function buildDoor(g){
+  [-.59,.59].forEach(x=>box(.12,2.5,.16, M('doorFrame','#efe2cf'), x,0,.1, g).userData.paint='main');
+  box(1.3,.12,.16, M('doorFrame','#efe2cf'), 0,1.19,.1, g).userData.paint='main';
+  const hinge=new THREE.Group(); hinge.position.set(-.53,0,.08); g.add(hinge); g.userData.hinge=hinge;
+  box(1.06,2.38,.06, M('doorPanel','#8a5a3b'), .53,-.06,0, hinge).userData.paint='sub';
+  [.45,-.62].forEach(y=>box(.78,y>0?.9:.8,.02, M('doorInset','#6e4630'), .53,y,.04, hinge));
+  sph(.055, M('knob','#ffd166',{metalness:.6,roughness:.3}), .95,-.12,.07, hinge);
+  const glow=mesh(new THREE.PlaneGeometry(1.0,.07), new THREE.MeshBasicMaterial({color:'#ffd166', transparent:true, opacity:.85, toneMapped:false}), 0,-1.21,.2, g);
+  glow.castShadow=false; glow.visible=false; g.userData.glow=glow;
+  clickable(g, '옆방 문', ()=>useDoor(g)); }
+const doorInfo={};   // profile id -> {handle, name, title}
+function doorText(i){ return i.title&&i.title!=='내 리스닝 룸'?i.title:i.name+'님의 방'; }
+function updateDoor(g){ const to=g.userData.to, i=to&&doorInfo[to];
+  if(g.userData.sign){ g.remove(g.userData.sign); g.userData.sign=null; }
+  g.userData.glow.visible=!!to;
+  if(i){ const s=label('🚪 '+doorText(i),'rgba(20,14,40,.8)','#ffd166'); s.scale.multiplyScalar(.78); s.position.set(0,1.62,.3); g.add(s); g.userData.sign=s; }
+  const name=to?(i?doorText(i)+'(으)로 가는 문 · 눌러서 들어가기':'옆방 문'):'옆방 문 · '+(view.isOwner?'꾸미기에서 친구 방을 연결해보세요':'아직 연결되지 않았어요');
+  g.traverse(o=>{ if(o.isMesh&&o.userData.hit) o.userData.hit.name=name; }); }
+async function resolveDoors(){ const doors=movables.filter(g=>g.userData.type==='door'); doors.forEach(updateDoor);
+  const ids=[...new Set(doors.map(g=>g.userData.to).filter(id=>id&&!doorInfo[id]))]; if(!ids.length||!sb) return;
+  const [p,r]=await Promise.all([sb.from('lr_profiles').select('id,handle,display_name').in('id',ids), sb.from('lr_rooms').select('owner_id,title').in('owner_id',ids)]);
+  (p.data||[]).forEach(x=>{ const t=(r.data||[]).find(y=>y.owner_id===x.id); doorInfo[x.id]={handle:x.handle, name:x.display_name, title:t?t.title:null}; });
+  movables.filter(g=>g.userData.type==='door').forEach(updateDoor); }
+function doorFront(g, d=.75){ const w=g.getWorldPosition(new THREE.Vector3()); const n=new THREE.Vector3(0,0,1).applyQuaternion(g.parent.quaternion); return {x:w.x+n.x*d, z:w.z+n.z*d, rot:Math.atan2(n.x,n.z)}; }
+// friends (mutual follows) the owner can link a door to
+let friendsCache=null;
+async function loadFriends(){ if(friendsCache) return friendsCache; if(!sb||!uid()) return [];
+  const [a,b]=await Promise.all([sb.from('lr_follows').select('followee_id').eq('follower_id',uid()), sb.from('lr_follows').select('follower_id').eq('followee_id',uid())]);
+  const mine=new Set((a.data||[]).map(x=>x.followee_id)); const ids=(b.data||[]).map(x=>x.follower_id).filter(id=>mine.has(id));
+  if(!ids.length) return friendsCache=[];
+  const [p,r]=await Promise.all([sb.from('lr_profiles').select('id,handle,display_name').in('id',ids).order('display_name'), sb.from('lr_rooms').select('owner_id,title').in('owner_id',ids)]);
+  friendsCache=(p.data||[]).map(x=>{ const t=(r.data||[]).find(y=>y.owner_id===x.id); doorInfo[x.id]={handle:x.handle, name:x.display_name, title:t?t.title:null}; return {id:x.id, ...doorInfo[x.id]}; });
+  return friendsCache; }
+async function renderDoorRow(g){ const sel=$('door-to'), note=$('door-note'); sel.innerHTML=''; note.textContent='';
+  const opt=(v,t)=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; sel.appendChild(o); return o; };
+  if(view.demo||!uid()){ opt('','로그인하면 친구 방을 연결할 수 있어요'); sel.disabled=true; return; }
+  opt('','연결 안 함'); sel.disabled=true; const list=await loadFriends(); if(selected!==g) return; sel.disabled=false;
+  list.forEach(f=>opt(f.id, f.name+' · @'+f.handle));
+  const to=g.userData.to; if(to&&!list.some(f=>f.id===to)) opt(to,(doorInfo[to]?doorInfo[to].name:'예전 친구')+' (지금은 친구 아님)');
+  sel.value=to||''; if(!list.length) note.textContent='서로 팔로우한 친구가 생기면 고를 수 있어요'; }
+$('door-to').addEventListener('change',e=>{ const g=selected; if(!g||g.userData.type!=='door') return; g.userData.to=e.target.value||null; updateDoor(g); pushHistory();
+  toast(g.userData.to?doorText(doorInfo[g.userData.to])+'과(와) 연결했어요 · 저장하면 방문자도 지나갈 수 있어요':'문 연결을 끊었어요'); });
+let travelVia=null, travelling=false;
+async function useDoor(g){ if(editing||travelling) return; const to=g.userData.to;
+  if(!to){ toast(view.isOwner?'방 꾸미기에서 이 문을 고르고 친구 방을 연결해보세요':'아직 아무 방과도 연결되지 않은 문이에요'); return; }
+  if(view.host&&to===view.host.id) return;
+  const i=doorInfo[to]; if(!i||!sb){ toast('옆방을 찾을 수 없어요'); return; }
+  travelling=true; const r=await sb.from('lr_rooms').select('id').eq('owner_id',to).maybeSingle();
+  if(r.error||!r.data){ travelling=false; toast(i.name+'님 방은 지금 들어갈 수 없어요 · 친구 공개이거나 비공개예요'); return; }
+  const h=g.userData.hinge, t0=performance.now(); (function swing(){ const k=Math.min(1,(performance.now()-t0)/380); h.rotation.y=-1.25*k*(2-k); if(k<1) requestAnimationFrame(swing); })();
+  setTimeout(()=>{ $('fade').classList.add('on'); }, 220);
+  setTimeout(()=>{ travelVia={from:view.host&&view.host.id, handle:view.host&&view.host.handle, name:view.host&&view.host.display_name, title:view.room&&view.room.title, t:Date.now()};
+    if(location.hash==='#/@'+i.handle) route(); else go(i.handle); }, 600);
+  setTimeout(()=>{ travelling=false; $('fade').classList.remove('on'); }, 5000); }
+// called after a room opens: step out of the door that leads back, or remember the way home
+function arriveFromDoor(){ const v=travelVia; travelVia=null; view.cameFrom=null;
+  if(!v||Date.now()-v.t>15000||!v.from) return;
+  const back=movables.find(g=>g.userData.type==='door'&&g.userData.to===v.from);
+  if(back){ const f=doorFront(back,.9); let sx=f.x, sz=f.z;
+    outer: for(let r=0;r<3;r+=.3) for(let a=0;a<12;a++){ const x=f.x+Math.sin(a/12*6.283)*r, z=f.z+Math.cos(a/12*6.283)*r; if(!blocked(x,z)){ sx=x; sz=z; break outer; } }
+    standAt(me,sx,sz,f.rot); walkedOff=true; }
+  else { view.cameFrom=v; if(v.from&&!doorInfo[v.from]) doorInfo[v.from]={handle:v.handle, name:v.name, title:v.title}; }
+  toast((view.isOwner?'내 방':doorText({name:view.host.display_name, title:view.room.title}))+'에 들어왔어요'); }
+function updateDoors(){ if(editing||travelling||!walk.moving) return; const p=me.g.position;
+  for(const g of movables){ if(g.userData.type!=='door'||!g.userData.to||!g.parent.visible) continue; const f=doorFront(g,.45); if(Math.hypot(p.x-f.x,p.z-f.z)<.55){ useDoor(g); return; } } }
 function makeWall(type, wg, u, v){ const g=new THREE.Group(); g.userData={type, id:++itemSeq, movable:true, wall:true}; WALLCAT[type].build(g);
   g.position.set(u,v,T/2); wg.add(g); movables.push(g); return g; }
 const PALETTE = ['#e07a8b','#ffb86b','#ffd166','#3fa36b','#4cc9f0','#9b7bff','#e63946','#8a5a3b','#2c2c33','#f3efe6'];
@@ -502,13 +569,13 @@ function cat(g){ return g.userData.wall?WALLCAT[g.userData.type]:CATALOG[g.userD
 function select(g){
   selected=g; surface=null;
   if(!g){ tool.hidden=true; fpMesh.visible=false; wallFP.visible=false; selBox.visible=false; return; }
-  part='main'; $('tool-name').textContent=cat(g).name; $('rot').hidden=!!g.userData.wall; $('del').hidden=false; $('dup').hidden=false; $('photo').hidden=!(g.userData.wall&&WALLCAT[g.userData.type].photo); $('sizeRow').hidden=!g.userData.photo; if(g.userData.photo) syncSize(g);
+  part='main'; $('tool-name').textContent=cat(g).name; $('rot').hidden=!!g.userData.wall; $('del').hidden=false; $('dup').hidden=false; $('photo').hidden=!(g.userData.wall&&WALLCAT[g.userData.type].photo); $('sizeRow').hidden=!g.userData.photo; if(g.userData.photo) syncSize(g); $('doorRow').hidden=g.userData.type!=='door'; if(g.userData.type==='door') renderDoorRow(g);
   renderParts(g); renderSwatches(PALETTE);
   selBox.setFromObject(g); selBox.visible=true; if(g.userData.wall){ fpMesh.visible=false; showWallFP(g,true); } else { wallFP.visible=false; showFP(g,true); } tool.hidden=false; placeTool();
 }
 function selectSurface(kind, point){
   select(null); surface=kind; surfAt=point.clone();
-  $('tool-name').textContent=SURF[kind].name; $('rot').hidden=true; $('del').hidden=true; $('dup').hidden=true; $('photo').hidden=true; $('sizeRow').hidden=true; partsWrap.innerHTML='';
+  $('tool-name').textContent=SURF[kind].name; $('rot').hidden=true; $('del').hidden=true; $('dup').hidden=true; $('photo').hidden=true; $('sizeRow').hidden=true; $('doorRow').hidden=true; partsWrap.innerHTML='';
   renderSwatches(SURF[kind].pal); tool.hidden=false; placeTool();
 }
 function placeTool(){ let top;
@@ -604,7 +671,8 @@ const wallFP=new THREE.Mesh(new THREE.PlaneGeometry(1,1), wallFPMat); wallFP.vis
 wallFP.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1,1)), new THREE.LineBasicMaterial({color:0x3ddc97})));
 function rectsHit(a,b){ return Math.abs(a[0]-b[0])*2 < a[2]+b[2]-.02 && Math.abs(a[1]-b[1])*2 < a[3]+b[3]-.02; }
 function validWall(g, wg, u, v, sz){ const [w,h]=sz||sizeOf(g); const r=[u,v,w,h];
-  if(Math.abs(u)+w/2>4.9 || v-h/2<1.62 || v+h/2>H-.12) return false;
+  if(WALLCAT[g.userData.type].floor){ if(Math.abs(u)+w/2>4.9 || Math.abs(v-h/2)>.01) return false; }   // doors stand on the floor
+  else if(Math.abs(u)+w/2>4.9 || v-h/2<1.62 || v+h/2>H-.12) return false;
   if(wg.userData.blocked.some(b=>rectsHit(r,b))) return false;
   return !movables.some(o=>o!==g && o.userData.wall && o.parent===wg && rectsHit(r,[o.position.x,o.position.y,...sizeOf(o)])); }
 function showWallFP(g, ok){ const [w,h]=sizeOf(g); g.parent.add(wallFP); wallFP.position.set(g.position.x,g.position.y,T/2+.006); wallFP.scale.set(w+.3,h+.3,1); wallFP.visible=true;
@@ -615,7 +683,7 @@ function furnitureRects(wg){ // tall floor furniture standing against this wall,
     if(z0<T/2+1.6) out.push([(x0+x1)/2, b.max.y/2, x1-x0+.2, b.max.y+.4]); }); return out; }
 function freeWallSpot(g){ const vis=WALLS.filter(w=>w.visible), hid=WALLS.filter(w=>!w.visible); const [w,h]=sizeOf(g);
   for(const [list,strict] of [[vis,true],[hid,true],[vis,false],[hid,false]]) for(const wg of list){ const fr=strict?furnitureRects(wg):[];
-    for(let dv=0; dv<=8; dv++) for(const sv of [1,-1]) { const v=4.2+sv*dv*.25; for(let du=0; du<=19; du++) for(const su of [1,-1]){ const u=su*du*.25;
+    for(let dv=0; dv<=8; dv++) for(const sv of [1,-1]) { const v=WALLCAT[g.userData.type].floor?h/2:4.2+sv*dv*.25; for(let du=0; du<=19; du++) for(const su of [1,-1]){ const u=su*du*.25;
       if(validWall(g,wg,u,v) && !fr.some(r=>rectsHit([u,v,w,h],r))) return {wg,u,v}; } } }
   return null; }
 function spawnWall(type){ const g=makeWall(type, back, 0, 4); const p=freeWallSpot(g);
@@ -623,7 +691,7 @@ function spawnWall(type){ const g=makeWall(type, back, 0, 4); const p=freeWallSp
   p.wg.add(g); g.position.set(p.u,p.v,T/2); setTimeout(pushHistory,0);
   if(!p.wg.visible){ const n=new THREE.Vector3(0,0,1).applyQuaternion(p.wg.quaternion); const side=new THREE.Vector3(n.z,0,-n.x);
     goTo(n.clone().multiplyScalar(15).add(side.multiplyScalar(6)).setY(13)); toast('보이지 않던 벽에 걸어서 방을 돌렸어요'); }
-  select(g); toast(WALLCAT[type].name+' 걸었어요 · 끌어서 옮겨보세요'+(WALLCAT[type].photo?' · 사진도 넣어보세요':'')); }
+  select(g); toast(type==='door'?'옆방 문을 달았어요 · 연결할 친구 방을 골라보세요':WALLCAT[type].name+' 걸었어요 · 끌어서 옮겨보세요'+(WALLCAT[type].photo?' · 사진도 넣어보세요':'')); }
 const wallMeshes=surfMeshes.slice(1);
 function wallPoint(ev){ setRay(ev); const hit=ray.intersectObjects(wallMeshes,false).find(h=>isShown(h.object)); if(!hit) return null;
   const wg=hit.object.parent; const loc=wg.worldToLocal(hit.point.clone()); return {wg,u:loc.x,v:loc.y}; }
@@ -683,7 +751,7 @@ function avatarData(o){ const {parent,pos,rot,pose,wave,say,tagBg,dot,...rest}=o
 function serializeRoom(){ const hex=c=>'#'+c.getHexString();
   return { v:2,
     floor: movables.filter(g=>!g.userData.wall).map(g=>{ const P=(g.userData.pet&&!editing&&g.userData.home)||g.position, ry=(g.userData.pet&&!editing&&g.userData.homeRot!=null)?g.userData.homeRot:g.rotation.y; return {t:g.userData.type, x:+P.x.toFixed(2), z:+P.z.toFixed(2), r:+ry.toFixed(4), pid:g.userData.pid||undefined, n:g.userData.pet?g.userData.petName:undefined, c:g.userData.colors||null, seat:g.userData.seat||null, l:!!g.userData.light}; }),
-    wall: movables.filter(g=>g.userData.wall).map(g=>({t:g.userData.type, w:WALLS.indexOf(g.parent), u:+g.position.x.toFixed(2), v:+g.position.y.toFixed(2), s:g.userData.size||null, c:g.userData.colors||null, p:g.userData.photoId||null})),
+    wall: movables.filter(g=>g.userData.wall).map(g=>({t:g.userData.type, w:WALLS.indexOf(g.parent), u:+g.position.x.toFixed(2), v:+g.position.y.toFixed(2), s:g.userData.size||null, c:g.userData.colors||null, p:g.userData.photoId||null, to:g.userData.to||undefined})),
     surf:{wall:hex(mats.wallA.color), floor:hex(floorMat.color), ...roomStyle} }; }
 function applyRoom(d){ if(!d||!Array.isArray(d.floor)) return; select(null);
   const prevSeat=me.sitting&&movables.includes(me.sitting)?{t:me.sitting.userData.type, x:me.sitting.position.x, z:me.sitting.position.z, hint:me.g.getWorldPosition(new THREE.Vector3())}:null;
@@ -691,17 +759,18 @@ function applyRoom(d){ if(!d||!Array.isArray(d.floor)) return; select(null);
   if((d.v||1)<2&&!d.floor.some(it=>/^rug/.test(it.t))) make('rugRound', .3, .7);   // rooms saved before rugs were movable
   d.floor.forEach(it=>{ if(!CATALOG[it.t]) return; const g=make(it.t, it.x, it.z, it.r, {light:it.l, pid:it.pid, name:it.n}); if(it.seat) g.userData.seat=it.seat;
     if(it.c){ if(it.c.main) paint(g,it.c.main,'main'); if(it.c.sub) paint(g,it.c.sub,'sub'); } });
-  d.wall.forEach(it=>{ if(!WALLCAT[it.t]||!WALLS[it.w]) return; const g=makeWall(it.t, WALLS[it.w], it.u, it.v);
+  d.wall.forEach(it=>{ if(!WALLCAT[it.t]||!WALLS[it.w]) return; const g=makeWall(it.t, WALLS[it.w], it.u, it.v); if(it.to&&it.t==='door') g.userData.to=it.to;
     if(it.s&&g.userData.photo) resizeFrame(g,it.s[0],it.s[1]);
     if(it.c){ if(it.c.main) paint(g,it.c.main,'main'); if(it.c.sub) paint(g,it.c.sub,'sub'); }
     if(it.p&&g.userData.photo){ g.userData.photoId=it.p; photoFor(it.p).then(img=>{ if(g.userData.photoId===it.p) drawPhoto(g,img); }).catch(()=>{}); } });
   if(d.surf){ paintSurface('wall',d.surf.wall); paintSurface('floor',d.surf.floor); }
   const st={}; ['wallPat','floorPat','view','mood'].forEach(k=>{ if(d.surf&&d.surf[k]) st[k]=d.surf[k]; }); applyStyle({wallPat:'plain', floorPat:'wood', view:'night', mood:'cozy', ...st});
   const again=prevSeat&&movables.find(g=>g.userData.type===prevSeat.t&&Math.abs(g.position.x-prevSeat.x)<.01&&Math.abs(g.position.z-prevSeat.z)<.01);
-  layoutSig++; seatAvatars(); if(again&&me.sitting!==again) sitOn(me,again,prevSeat.hint); }
+  for(let i=clickables.length-1;i>=0;i--){ const c=clickables[i]; if(c.userData.movable&&!movables.includes(c)) clickables.splice(i,1); }   // drop removed pets/doors
+  layoutSig++; seatAvatars(); if(again&&me.sitting!==again) sitOn(me,again,prevSeat.hint); resolveDoors(); }
 function takeSnapshot(){ snapshot=serializeRoom(); }
 function restore(){ applyRoom(snapshot); }
-function setEditing(on){ petsForEdit(on); editing=on; tip.classList.remove('show'); if(!on&&pendingRoom){ const d=pendingRoom; pendingRoom=null; setTimeout(()=>{ if(!editing&&!dressing&&JSON.stringify(d)===lastRoomJSON) applyRoom(d); },0); } document.body.classList.toggle('editing',on); $('drawer').hidden=!on; $('player').hidden=on; grid.visible=on; document.querySelector('.themes').hidden=on;
+function setEditing(on){ petsForEdit(on); if(on) friendsCache=null; editing=on; tip.classList.remove('show'); if(!on&&pendingRoom){ const d=pendingRoom; pendingRoom=null; setTimeout(()=>{ if(!editing&&!dressing&&JSON.stringify(d)===lastRoomJSON) applyRoom(d); },0); } document.body.classList.toggle('editing',on); $('drawer').hidden=!on; $('player').hidden=on; grid.visible=on; document.querySelector('.themes').hidden=on;
   avatars.forEach(a=>a.bub&&(a.bub.visible=!on)); $('pl').hidden=true; if(!on) select(null); setHint();
   if(on){ setSpin(false); takeSnapshot(); resetHistory(); goTo(new THREE.Vector3(13,17,13)); } }
 $('edit').addEventListener('click',()=>setEditing(true));
@@ -1058,12 +1127,25 @@ function photoFor(id){
     return await new Promise((res,rej)=>{ const img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>res(img); img.onerror=rej; img.src=s.data.signedUrl; }); })(); }
 function setReadOnly(ro){ document.body.classList.toggle('ro',ro); $('edit').hidden=ro; $('dress').hidden=!view.session;
   me.onBuild=a=>{ if(view.session) clickable(a.g,'나 · 눌러서 캐릭터 꾸미기', ()=>setDressing(true)); }; rebuildAvatar(me); }
-async function reloadRoom(){ if(!view.host) return; const r=await sb.from('lr_rooms').select('id,owner_id,layout,visibility,featured_playlist_id').eq('owner_id',view.host.id).maybeSingle();
-  if(r.error||!r.data) return; view.room=r.data; const L=r.data.layout; const js=JSON.stringify(L); if(js===lastRoomJSON) return; lastRoomJSON=js;
+async function reloadRoom(){ if(!view.host) return; const r=await sb.from('lr_rooms').select('id,owner_id,title,layout,visibility,featured_playlist_id').eq('owner_id',view.host.id).maybeSingle();
+  if(r.error||!r.data) return; const tChanged=!view.room||view.room.title!==r.data.title; view.room=r.data; if(tChanged) renderTitle(); const L=r.data.layout; const js=JSON.stringify(L); if(js===lastRoomJSON) return; lastRoomJSON=js;
   if(editing||dressing) pendingRoom=L; else applyRoom(L&&L.floor&&L.floor.length?L:DEFAULT_LAYOUT); }
+const DEFAULT_TITLE='내 리스닝 룸'; let demoTitle='새벽 감성 방 (체험)';
+function customTitle(){ const t=view.room&&view.room.title; return t&&t!==DEFAULT_TITLE?t:''; }
+function renderTitle(){ const h=view.host, ct=customTitle();
+  const t=view.demo?demoTitle:(ct||(view.isOwner?DEFAULT_TITLE:h.display_name+'님의 방'));
+  $('room-title').textContent=t; document.title=t+' · lofi.room'; $('title-edit').hidden=!view.isOwner; $('title-form').hidden=true; $('room-title').hidden=false;
+  $('cloud').textContent = view.demo ? '로그인하면 꾸민 방이 저장돼요' : (view.isOwner?'@'+h.handle+' · 저장하면 다시 열어도 그대로예요':'@'+h.handle+(ct?' · '+h.display_name+'님의 방':'')+' · 구경 중'); }
+$('title-edit').addEventListener('click',()=>{ $('room-title').hidden=true; $('title-edit').hidden=true; $('title-form').hidden=false; const i=$('title-in'); i.value=view.demo?demoTitle:(customTitle()||''); i.focus(); i.select(); });
+$('title-in').addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); renderTitle(); } });
+$('title-form').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('title-in').value.replace(/\s+/g,' ').trim().slice(0,40);
+  if(view.demo){ demoTitle=v||'새벽 감성 방 (체험)'; renderTitle(); toast('방 이름을 바꿨어요 · 로그인하면 저장돼요'); return; }
+  if(!view.isOwner) return renderTitle();
+  const title=v||DEFAULT_TITLE; const r=await sb.from('lr_rooms').update({title}).eq('id',view.room.id);
+  if(r.error){ toast('이름을 바꾸지 못했어요 · '+r.error.message); return; }
+  view.room.title=title; renderTitle(); rt.send('room',{}); toast(v?'방 이름을 "'+title+'"(으)로 바꿨어요':'방 이름을 기본으로 되돌렸어요'); });
 function renderHeader(){
-  const h=view.host; $('room-title').textContent = view.demo ? '새벽 감성 방 (체험)' : (view.isOwner?'내 리스닝 룸':h.display_name+'님의 방');
-  $('cloud').textContent = view.demo ? '로그인하면 꾸민 방이 저장돼요' : (view.isOwner?'@'+h.handle+' · 저장하면 다시 열어도 그대로예요':'@'+h.handle+' · 구경 중');
+  const h=view.host; renderTitle();
   $('acct').innerHTML=''; const A=$('acct');
   if(view.session&&view.me){ const b=document.createElement('button'); b.className='chip'; b.textContent='@'+view.me.handle; b.title='내 방으로'; b.addEventListener('click',()=>go(view.me.handle)); A.appendChild(b);
     const o=document.createElement('button'); o.className='chip'; o.textContent='로그아웃'; o.addEventListener('click',async()=>{ await sb.auth.signOut(); location.hash=''; location.reload(); }); A.appendChild(o); }
@@ -1075,7 +1157,9 @@ function renderHeader(){
       V.appendChild(s);
       gbButton(V);
       const c=document.createElement('button'); c.className='chip'; c.textContent='🔗 내 방 링크 복사'; c.addEventListener('click',()=>{ const url=location.origin+location.pathname+'#/@'+h.handle; (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('링크를 복사했어요 · 친구에게 보내보세요')).catch(()=>toast(url)); }); V.appendChild(c); }
-  else if(!view.demo){ const f=document.createElement('button'); f.className='chip'; f.id='follow'; V.appendChild(f); const l=document.createElement('button'); l.className='chip'; l.id='like'; V.appendChild(l); gbButton(V); refreshSocial(); } }
+  else if(!view.demo){ const f=document.createElement('button'); f.className='chip'; f.id='follow'; V.appendChild(f); const l=document.createElement('button'); l.className='chip'; l.id='like'; V.appendChild(l); gbButton(V); refreshSocial(); }
+  const cf=view.cameFrom; if(!view.demo&&cf&&cf.handle){ const b=document.createElement('button'); b.className='chip'; b.textContent='🚪 ← '+(cf.from===uid()?'내 방':doorText({name:cf.name,title:cf.title}))+'(으)로';
+    b.title='들어온 문으로 돌아가기'; b.addEventListener('click',()=>{ travelVia={from:view.host.id, handle:view.host.handle, name:view.host.display_name, title:view.room.title, t:Date.now()}; $('fade').classList.add('on'); travelling=true; setTimeout(()=>go(cf.handle),300); }); V.prepend(b); } }
 async function refreshSocial(){ const f=$('follow'), l=$('like'); if(!f) return; const h=view.host;
   const [fo, likes, mine]=await Promise.all([ uid()?sb.from('lr_follows').select('follower_id').eq('follower_id',uid()).eq('followee_id',h.id):Promise.resolve({data:[]}),
     sb.from('lr_room_likes').select('user_id',{count:'exact',head:true}).eq('room_id',view.room.id),
@@ -1087,14 +1171,14 @@ function go(handle){ location.hash='#/@'+handle; }
 async function openRoom(handle){ $('gb').hidden=true; closePetMenu();
   const pr=await sb.from('lr_profiles').select('id,handle,display_name,avatar').eq('handle',handle.toLowerCase()).maybeSingle();
   if(pr.error||!pr.data){ toast('@'+handle+' 방을 찾을 수 없어요'); return openDemo(); }
-  const rr=await sb.from('lr_rooms').select('id,owner_id,layout,visibility,featured_playlist_id').eq('owner_id',pr.data.id).maybeSingle();
+  const rr=await sb.from('lr_rooms').select('id,owner_id,title,layout,visibility,featured_playlist_id').eq('owner_id',pr.data.id).maybeSingle();
   if(rr.error||!rr.data){ toast(pr.data.display_name+'님의 방은 친구에게만 공개돼 있어요'); return openDemo(); }
   view.demo=false; view.host=pr.data; view.room=rr.data; view.isOwner=!!uid()&&uid()===pr.data.id; view.hostHere=false;
   if(hostA){ const i=avatars.indexOf(hostA); if(i>=0) avatars.splice(i,1); hostA.g.parent&&hostA.g.parent.remove(hostA.g); hostA=null; }
   if(!view.isOwner) hostA=avatar({...ME_DEFAULT, ...(pr.data.avatar||{}), name:pr.data.display_name+' ★', parent:scene, pose:'sit', pos:[0,0,0], tagBg:'rgba(255,184,107,.9)'});
   me.o={...me.o, ...ME_DEFAULT, ...((view.me&&view.me.avatar)||{}), name: view.me?view.me.display_name:'손님'}; me.sitting=view.isOwner?me.sitting:null; walkedOff=false;
   const L=rr.data.layout; lastRoomJSON=JSON.stringify(L); applyRoom(L&&L.floor&&L.floor.length?L:DEFAULT_LAYOUT);
-  setReadOnly(!view.isOwner); renderHeader(); playlists=[]; nowPL=null; await loadPlaylists(pr.data.id); joinRoomChannel(rr.data.id); }
+  arriveFromDoor(); setReadOnly(!view.isOwner); renderHeader(); playlists=[]; nowPL=null; await loadPlaylists(pr.data.id); joinRoomChannel(rr.data.id); }
 function openDemo(){ view.demo=true; view.isOwner=true; view.host=null; view.room=null; setReadOnly(false); $('dress').hidden=false; renderHeader();
   setPlaylists([{id:'example', name:'새벽 감성 로파이 (예시)', order:0, featured:true, tracks:[{k:'v', y:'rFZHOHl-L8A', title:'lofi hip hop radio — beats to relax/study to'}]}]); }
 async function ensureProfile(){ const u=view.session.user;
@@ -1105,7 +1189,8 @@ async function ensureProfile(){ const u=view.session.user;
     if(!r.error){ view.me=r.data; toast('환영해요! @'+h+' 방이 만들어졌어요'); return; } }
   toast('프로필을 만들지 못했어요 · 새로고침 해주세요'); }
 async function route(){ const m=location.hash.match(/^#\/@([a-z0-9_]{3,20})$/i);
-  if(m) return openRoom(m[1]); if(view.me) return go(view.me.handle); openDemo(); }
+  try{ if(m) return await openRoom(m[1]); if(view.me) return go(view.me.handle); openDemo(); }
+  finally{ if(travelling||$('fade').classList.contains('on')) setTimeout(()=>{ travelling=false; $('fade').classList.remove('on'); },120); } }
 
 // auth dialog
 function openAuth(mode){ const d=$('auth'); d.dataset.mode=mode; $('auth-err').textContent=''; $('auth-title').textContent=mode==='signup'?'내 리스닝 룸 만들기':'로그인';
@@ -1250,7 +1335,7 @@ async function searchRooms(q){
   else { const r=await sb.from('lr_rooms').select('owner_id,updated_at').order('updated_at',{ascending:false}).limit(12); const ids=(r.data||[]).map(x=>x.owner_id);
     if(ids.length){ const p=await sb.from('lr_profiles').select('id,handle,display_name,avatar').in('id',ids); profs=ids.map(id=>(p.data||[]).find(x=>x.id===id)).filter(Boolean); } }
   if(seq!==findSeq) return;
-  const vis=new Set(); if(profs.length){ const r=await sb.from('lr_rooms').select('owner_id').in('owner_id',profs.map(p=>p.id)); (r.data||[]).forEach(x=>vis.add(x.owner_id)); }
+  const vis=new Set(), titles={}; if(profs.length){ const r=await sb.from('lr_rooms').select('owner_id,title').in('owner_id',profs.map(p=>p.id)); (r.data||[]).forEach(x=>{ vis.add(x.owner_id); if(x.title&&x.title!==DEFAULT_TITLE) titles[x.owner_id]=x.title; }); }
   if(seq!==findSeq) return;
   list.innerHTML='';
   if(!profs.length){ list.innerHTML='<li class="empty">'+(clean?'"'+clean.replace(/[<>&]/g,'')+'"(으)로 찾은 방이 없어요':'아직 구경할 방이 없어요')+'</li>'; return; }
@@ -1258,7 +1343,7 @@ async function searchRooms(q){
   profs.forEach(p=>{ const li=document.createElement('li'); const b=document.createElement('button'); const open=vis.has(p.id); const here=view.host&&view.host.id===p.id;
     b.innerHTML='<span class="face"></span><span class="who"><b></b><small></small></span><span class="tag"></span>';
     const face=b.querySelector('.face'); face.style.background=(p.avatar&&p.avatar.shirt)||'#c9b6ff'; face.textContent=(p.display_name||p.handle).slice(0,1);
-    b.querySelector('b').textContent=p.display_name; b.querySelector('small').textContent='@'+p.handle+(uid()===p.id?' · 내 방':'');
+    b.querySelector('b').textContent=p.display_name; b.querySelector('small').textContent='@'+p.handle+(titles[p.id]?' · '+titles[p.id]:'')+(uid()===p.id?' · 내 방':'');
     const tag=b.querySelector('.tag'); tag.textContent= here?'지금 여기':(open?'들어가기 →':'🔒 친구 공개'); if(here) tag.classList.add('here');
     b.addEventListener('click',async()=>{ if(!open&&uid()!==p.id){
       if(!uid()){ toast(p.display_name+'님의 방은 친구에게만 공개돼 있어요 · 로그인하고 팔로우해보세요'); return; }
@@ -1270,7 +1355,7 @@ async function searchRooms(q){
 const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(), tip=$('tip'), floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 let downAt=null;
 function setRay(ev){ const r=canvas.getBoundingClientRect(); mouse.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1); ray.setFromCamera(mouse,camera); }
-function isShown(o){ while(o){ if(!o.visible) return false; o=o.parent; } return true; }
+function isShown(o){ while(o){ if(!o.visible) return false; if(o===scene) return true; o=o.parent; } return false; }
 function pick(ev){ setRay(ev); const hits=ray.intersectObjects(clickables,true).filter(h=>isShown(h.object)); return hits.length?hits[0].object.userData.hit:null; }
 function pickMovable(ev){ setRay(ev); const hits=ray.intersectObjects(movables,true).filter(h=>isShown(h.object)&&!h.object.isSprite);
   if(!hits.length) return null; let o=hits[0].object; while(o&&!o.userData.movable) o=o.parent; return o; }
@@ -1284,7 +1369,7 @@ canvas.addEventListener('pointerdown',ev=>{ downAt=[ev.clientX,ev.clientY];
 });
 canvas.addEventListener('pointermove',ev=>{
   if(drag&&drag.wall){ const wp=wallPoint(ev); if(!wp) return; const g=drag.g; const [w,h]=sizeOf(g); const snap=v=>Math.round(v*4)/4;
-    const u=Math.max(-4.9+w/2,Math.min(4.9-w/2,snap(wp.u))), v=Math.max(1.62+h/2,Math.min(H-.12-h/2,snap(wp.v)));
+    const u=Math.max(-4.9+w/2,Math.min(4.9-w/2,snap(wp.u))), v=WALLCAT[g.userData.type].floor?h/2:Math.max(1.62+h/2,Math.min(H-.12-h/2,snap(wp.v)));
     if(g.parent!==wp.wg) wp.wg.add(g); g.position.set(u,v,T/2+.06); drag.ok=validWall(g,wp.wg,u,v); showWallFP(g,drag.ok); canvas.style.cursor='grabbing'; tip.classList.remove('show'); return; }
   if(drag){ const fp=floorPoint(ev); if(!fp) return; const p=fp.sub(drag.off); const f=footprint(drag.g);
     const snap=v=>Math.round(v*4)/4; p.set(snap(p.x),0,snap(p.z));
@@ -1315,7 +1400,7 @@ function frame(now){
   const ph=beatPhase(); const beat = playing ? Math.pow(Math.max(0,Math.cos(ph*Math.PI*2)),8) : 0;
   if(playing&&record) record.rotation.y -= dt*3.5;
   if(ytReady&&yt.getDuration&&yt.getDuration()>0) progress=Math.min(1,(yt.getCurrentTime()||0)/yt.getDuration()); else if(playing) progress=(progress+dt/225)%1;
-  updateWalk(dt); updatePeers(dt);
+  updateWalk(dt); updateDoors(); updatePeers(dt);
   if(view.isOwner&&rt.ch&&performance.now()-rt.lastDj>5000) djSend();
   avatars.forEach(a=>{ if(a.chat&&performance.now()>a.chatUntil){ a.g.remove(a.chat); a.chat=null; } });
   prog.style.width=(progress*100)+'%';

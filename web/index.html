@@ -124,6 +124,17 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ro [data-edit]{display:none!important}
 a.btn{text-decoration:none}
 .player .btn.ghost{flex:none}
+.brand .trow{display:flex;align-items:center;gap:6px}
+.tedit{font:inherit;font-size:13px;color:var(--mute);background:rgba(255,255,255,.08);border:0;border-radius:8px;width:26px;height:26px;cursor:pointer;flex:none}
+.tedit:hover{color:var(--ink);background:rgba(255,255,255,.16)}
+.tform{display:flex;gap:6px;margin:2px 0 3px}
+.tform input{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:10px;padding:6px 10px;width:min(220px,46vw)}
+.tform .pill{padding:6px 12px}
+.doorrow select{font:inherit;font-size:12px;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:8px;padding:4px 8px;max-width:220px}
+.doorrow select option{color:#111}
+.doorrow small{color:var(--mute)}
+.fade{position:fixed;inset:0;z-index:20;background:#0c0a14;opacity:0;pointer-events:none;transition:opacity .35s}
+.fade.on{opacity:1;pointer-events:auto}
 .sizerow{flex-basis:100%;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute);padding:4px 8px 2px;border-top:1px solid var(--line);margin-top:4px}
 .sizerow label{display:flex;align-items:center;gap:6px}
 .sizerow input{width:96px;accent-color:var(--accent)}
@@ -242,7 +253,7 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 
 <canvas id="c" tabindex="0" aria-label="3D 리스닝 룸. 드래그해서 회전, 스크롤로 확대"></canvas>
 <div class="ui">
-  <div class="brand glass"><div class="lg">♪</div><div><b id="room-title">lofi.room</b><span id="cloud">불러오는 중…</span></div></div>
+  <div class="brand glass"><div class="lg">♪</div><div class="bt"><div class="trow"><b id="room-title">lofi.room</b><button class="tedit" id="title-edit" hidden title="방 이름 바꾸기" aria-label="방 이름 바꾸기">✎</button></div><form class="tform" id="title-form" hidden><input id="title-in" maxlength="40" aria-label="방 이름" placeholder="방 이름 (40자까지)"><button class="pill save" type="submit">저장</button></form><span id="cloud">불러오는 중…</span></div></div>
   <div class="visit glass" id="visit" hidden></div>
   <div class="hint glass" id="hint"></div>
   <div class="themes glass" role="group" aria-label="방 꾸미기">
@@ -322,6 +333,7 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
   <label class="sw custom" title="직접 고르기"><input type="color" id="custom" value="#ff8ad1" aria-label="색 직접 고르기"></label>
   <button id="photo" hidden>🖼 사진 넣기</button>
   <div class="sizerow" id="sizeRow" hidden><span>크기</span><label>가로 <input type="range" id="sz-w" min="0.5" max="3.6" step="0.1"></label><label>세로 <input type="range" id="sz-h" min="0.5" max="3.6" step="0.1"></label><output id="sz-out"></output></div>
+  <div class="sizerow doorrow" id="doorRow" hidden><span>🚪 연결할 방</span><select id="door-to" aria-label="이 문으로 연결할 친구 방"></select><small id="door-note"></small></div>
   <button id="dup" title="복제 (Ctrl+D)">⧉ 복제</button>
   <button class="del" id="del" title="치우기 (Del)">✕ 치우기</button>
 </div>
@@ -362,6 +374,7 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
 </div>
 <div class="tip glass" id="tip"></div>
 <div class="toast glass" id="toast"></div>
+<div class="fade" id="fade" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS3DRenderer.js"></script>
