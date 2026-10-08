@@ -1203,9 +1203,9 @@ function openDemo(){ view.demo=true; view.isOwner=true; view.host=null; view.roo
   setPlaylists([{id:'example', name:'새벽 감성 로파이 (예시)', order:0, featured:true, tracks:[{k:'v', y:'rFZHOHl-L8A', title:'lofi hip hop radio — beats to relax/study to'}]}]); }
 async function ensureProfile(){ const u=view.session.user;
   let r=await sb.from('lr_profiles').select('id,handle,display_name,avatar').eq('id',u.id).maybeSingle(); if(r.data){ view.me=r.data; return; }
-  const meta=u.user_metadata||{}; let handle=(meta.lr_handle||meta.username||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20); if(handle.length<3) handle='user_'+u.id.slice(0,6);
+  const meta=u.user_metadata||{}; let handle=(meta.lr_handle||meta.username||(u.email||'').split('@')[0]||'').toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,20); if(handle.length<3) handle='user_'+u.id.slice(0,6);
   for(let i=0;i<4;i++){ const h=i?handle.slice(0,16)+'_'+Math.floor(Math.random()*999):handle;
-    r=await sb.from('lr_profiles').insert({id:u.id, handle:h, display_name:(meta.display_name||h).slice(0,20), avatar:ME_DEFAULT}).select('id,handle,display_name,avatar').single();
+    r=await sb.from('lr_profiles').insert({id:u.id, handle:h, display_name:(meta.display_name||meta.full_name||meta.name||h).slice(0,20), avatar:ME_DEFAULT}).select('id,handle,display_name,avatar').single();
     if(!r.error){ view.me=r.data; toast('환영해요! @'+h+' 방이 만들어졌어요'); return; } }
   toast('프로필을 만들지 못했어요 · 새로고침 해주세요'); }
 async function route(){ const m=location.hash.match(/^#\/@([a-z0-9_]{3,20})$/i);
@@ -1216,6 +1216,16 @@ async function route(){ const m=location.hash.match(/^#\/@([a-z0-9_]{3,20})$/i);
 function openAuth(mode){ const d=$('auth'); d.dataset.mode=mode; $('auth-err').textContent=''; $('auth-title').textContent=mode==='signup'?'내 리스닝 룸 만들기':'로그인';
   $('auth-submit').textContent=mode==='signup'?'가입하고 방 만들기':'로그인'; $('auth-switch').textContent=mode==='signup'?'이미 계정이 있어요 · 로그인':'처음이에요 · 회원가입';
   d.querySelectorAll('.su').forEach(e=>e.hidden=mode!=='signup'); d.hidden=false; $('a-email').focus(); }
+// Google sign-in (Supabase OAuth). Supabase sends the person back here; remember which room they were in.
+$('auth-google').addEventListener('click',async()=>{ const err=$('auth-err'), b=$('auth-google'); err.textContent=''; if(!sb){ err.textContent='서버에 연결되지 않았어요'; return; }
+  b.disabled=true;
+  try{
+    const st=await fetch(SB_URL+'/auth/v1/settings',{headers:{apikey:SB_KEY}}).then(r=>r.json()).catch(()=>null);
+    if(st&&st.external&&st.external.google===false){ err.textContent='구글 로그인이 아직 켜져 있지 않아요 · 지금은 이메일로 이용해주세요'; return; }
+    try{ sessionStorage.setItem('lr_return', location.hash||''); }catch(e){}
+    const r=await sb.auth.signInWithOAuth({provider:'google', options:{redirectTo:location.origin+location.pathname, queryParams:{prompt:'select_account'}}});
+    if(r.error) err.textContent='구글 로그인을 시작하지 못했어요 · '+r.error.message;
+  } finally { b.disabled=false; } });
 $('auth-switch').addEventListener('click',()=>openAuth($('auth').dataset.mode==='signup'?'login':'signup'));
 $('auth-x').addEventListener('click',()=>$('auth').hidden=true);
 $('auth-form').addEventListener('submit',async e=>{ e.preventDefault(); const mode=$('auth').dataset.mode, err=$('auth-err'); err.textContent='';
@@ -1237,7 +1247,12 @@ $('auth-form').addEventListener('submit',async e=>{ e.preventDefault(); const mo
 (async function boot(){
   updateNow(); setPlaying(false); $('tapplay').hidden=true;
   if(!sb){ openDemo(); toast('서버에 연결하지 못해서 체험 모드로 열었어요'); return; }
+  const oauthErr=new URLSearchParams(location.hash.slice(1)+'&'+location.search.slice(1)).get('error_description');
   const s=await sb.auth.getSession(); view.session=s.data.session; if(view.session) await ensureProfile();
+  let back=null; try{ back=sessionStorage.getItem('lr_return'); sessionStorage.removeItem('lr_return'); }catch(e){}
+  if(oauthErr||/^#(error|access_token)=/.test(location.hash)) history.replaceState(null,'',location.pathname+location.search);
+  if(oauthErr) toast(/database error/i.test(oauthErr)?'구글 계정으로 가입하지 못했어요 · 지금은 이메일로 가입해주세요':'구글 로그인에 실패했어요 · '+oauthErr);
+  else if(view.session&&back&&/^#\/@[a-z0-9_]{3,20}$/i.test(back)&&!location.hash) history.replaceState(null,'',location.pathname+location.search+back);
   sb.auth.onAuthStateChange(async(ev,session)=>{ const was=uid(); view.session=session; if(session&&session.user.id!==was){ await ensureProfile(); if(!location.hash) go(view.me.handle); else route(); } });
   addEventListener('hashchange',route); await route();
 })();
