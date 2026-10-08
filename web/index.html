@@ -115,6 +115,24 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .trk.now .t b{color:var(--accent)}
 .trk .x2{color:var(--bad)}
 .empty{font-size:13px;color:var(--mute);padding:10px;border:1px dashed var(--line);border-radius:12px;text-align:center}
+.addwrap{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.addtabs{display:flex;gap:4px;background:rgba(0,0,0,.2);border-radius:11px;padding:3px}
+.addtabs button{flex:1;font:inherit;font-size:12px;font-weight:700;color:var(--mute);background:none;border:0;border-radius:9px;padding:7px 8px;cursor:pointer}
+.addtabs button[aria-selected="true"]{background:rgba(255,255,255,.12);color:var(--ink)}
+.ysform{display:flex;gap:6px}
+.ysform input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.ysform select{font:inherit;font-size:12px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:0 8px}
+.ysform select option{color:#111}
+.yslist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto}
+.yslist .empty{font-size:12px;color:var(--mute);padding:10px 4px;text-align:center}
+.ysr{display:flex;align-items:center;gap:9px;padding:5px;border-radius:10px}
+.ysr:hover{background:rgba(255,255,255,.06)}
+.ysr img{width:72px;height:40px;object-fit:cover;border-radius:6px;flex:none;background:rgba(255,255,255,.08)}
+.ysr .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ysr .t b{font-size:12px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ysr .t small{font-size:11px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ysr button{flex:none;font:inherit;font-size:12px;font-weight:700;border:0;border-radius:9px;padding:7px 10px;cursor:pointer;background:var(--accent);color:var(--on-accent)}
+.ysr button.done{background:rgba(255,255,255,.1);color:var(--mute);cursor:default}
 .pladd{display:grid;grid-template-columns:1fr auto;gap:6px}
 .pladd input{font:inherit;font-size:13px;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
 .pladd #pl-url{grid-column:1/-1}
@@ -295,12 +313,19 @@ body.chat-min .actions{bottom:calc(126px + env(safe-area-inset-bottom,0px))}
     <div class="plchips" id="pl-chips"></div>
     <div class="plhead" id="pl-head"></div>
     <ol id="pl-list"></ol>
-    <form class="pladd" id="pl-add" novalidate>
-      <input id="pl-url" placeholder="유튜브 링크 붙여넣기" autocomplete="off" aria-label="유튜브 링크">
-      <input id="pl-title" placeholder="곡 제목 (선택)" autocomplete="off" aria-label="곡 제목">
-      <button class="pill save" type="submit">추가</button>
-      <small class="err" id="pl-err" aria-live="polite"></small>
-    </form>
+    <div class="addwrap" id="pl-addwrap">
+      <div class="addtabs" role="tablist" aria-label="곡 추가 방법"><button role="tab" id="add-search" aria-selected="true">🔍 검색해서 추가</button><button role="tab" id="add-link" aria-selected="false">🔗 링크로 추가</button></div>
+      <div id="pl-search">
+        <form class="ysform" id="ys-form" role="search"><input id="ys-q" type="search" placeholder="노래, 가수, 분위기로 검색" autocomplete="off" aria-label="유튜브 검색" maxlength="100"><select id="ys-type" aria-label="검색 종류"><option value="video">영상</option><option value="playlist">재생목록</option></select></form>
+        <ol class="yslist" id="ys-list" aria-live="polite"></ol>
+      </div>
+      <form class="pladd" id="pl-add" novalidate hidden>
+        <input id="pl-url" placeholder="유튜브 링크 붙여넣기" autocomplete="off" aria-label="유튜브 링크">
+        <input id="pl-title" placeholder="곡 제목 (선택)" autocomplete="off" aria-label="곡 제목">
+        <button class="pill save" type="submit">추가</button>
+        <small class="err" id="pl-err" aria-live="polite"></small>
+      </form>
+    </div>
     <div class="plfoot"><span id="pl-status"></span></div>
   </div>
   <div class="bottom">

@@ -52,6 +52,11 @@ Supabase `free` 프로젝트(`qidhrwbrflwisgumccpe`, 서울)에 두 마이그레
 - **구글 로그인:** Supabase 대시보드에서 Google 공급자를 켜고(Client ID/Secret), Redirect URLs에 사이트 주소를 넣어야 동작합니다.
 - **남은 보안 권고 1건:** 유출된 비밀번호 차단 기능이 꺼져 있습니다. 프로젝트 전체(다른 앱 포함) 설정이라 직접 바꾸지 않았습니다. Supabase 대시보드 → Authentication → Policies에서 켤 수 있습니다.
 
+## Edge Function
+
+- `lr-yt-search` (`supabase/functions/lr-yt-search`): 플레이리스트 패널의 유튜브 검색. `GET ?q=검색어&type=video|playlist`에 `apikey` 헤더(공개 publishable 키)를 붙여 부릅니다. 새 publishable 키는 JWT가 아니어서 `verify_jwt`는 끄고, 함수 안에서 키를 확인합니다.
+- 기본은 유튜브 웹 검색을 그대로 써서 키나 할당량이 필요 없습니다. 함수 비밀값에 `YT_API_KEY`를 넣으면 YouTube Data API를 먼저 씁니다.
+
 ## 저장소에 없는 것
 
 - **함께 듣기:** 지금 누가 방에 있는지, 같은 장면 재생, 채팅 말풍선은 저장하지 않고 Supabase Realtime 채널로 주고받습니다. 채널 이름은 `room:<방 id>`이고, presence에는 캐릭터 위치와 상태를, broadcast에는 재생·일시정지 시각과 반응을 담습니다.

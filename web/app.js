@@ -884,7 +884,7 @@ function renderPL(){
   chips.innerHTML=''; playlists.forEach(p=>{ const b=document.createElement('button'); b.textContent=(p.featured?'★ ':'')+p.name; b.setAttribute('aria-pressed',p===openPL); b.addEventListener('click',()=>{ openPL=p; renderPL(); }); chips.appendChild(b); });
   if(ed){ const nb=document.createElement('button'); nb.textContent='＋ 새 플레이리스트'; nb.addEventListener('click',newPL); chips.appendChild(nb); }
   head.innerHTML=''; list.innerHTML='';
-  $('pl-add').hidden=!ed||!openPL;
+  $('pl-addwrap').hidden=!ed||!openPL; if(!$('pl-addwrap').hidden) markAdded();
   if(!openPL){ list.innerHTML='<li class="empty">'+(ed?'아직 플레이리스트가 없어요. ＋ 새 플레이리스트를 눌러 유튜브 링크로 첫 곡을 넣어보세요.':'아직 플레이리스트가 없어요.')+'</li>'; return; }
   if(ed){ const inp=document.createElement('input'); inp.value=openPL.name; inp.maxLength=40; inp.setAttribute('aria-label','플레이리스트 이름'); let t;
       inp.addEventListener('input',()=>{ openPL.name=inp.value.trim()||'이름 없는 플레이리스트'; clearTimeout(t); t=setTimeout(()=>{ savePL(openPL); renderChipsOnly(); },600); }); head.appendChild(inp);
@@ -892,7 +892,7 @@ function renderPL(){
       f.addEventListener('click',()=>{ playlists.forEach(p=>p.featured=false); openPL.featured=true; savePL(openPL); renderPL(); startPL(openPL); }); head.appendChild(f);
     const d=document.createElement('button'); d.className='delpl'; d.textContent='삭제'; d.addEventListener('click',()=>deletePL(openPL,d)); head.appendChild(d);
   } else { const b=document.createElement('b'); b.textContent=openPL.name; head.appendChild(b); }
-  if(!openPL.tracks.length) list.innerHTML='<li class="empty">'+(ed?'아래에 유튜브 링크를 붙여넣어 곡을 추가하세요.':'아직 곡이 없어요.')+'</li>';
+  if(!openPL.tracks.length) list.innerHTML='<li class="empty">'+(ed?'아래에서 유튜브를 검색하거나 링크를 붙여넣어 곡을 추가하세요.':'아직 곡이 없어요.')+'</li>';
   openPL.tracks.forEach((t,i)=>{ const li=document.createElement('li'); li.className='trk'+(nowPL===openPL&&nowIdx===i?' now':'');
     li.innerHTML=`<span class="n">${i+1}</span><span class="t"><b></b><small>${t.k==='l'?'유튜브 재생목록':'유튜브 영상'}</small></span>`; li.querySelector('b').textContent=t.title;
     const play=document.createElement('button'); play.textContent='▶'; play.setAttribute('aria-label','재생'); play.addEventListener('click',()=>{ startPL(openPL,i,true); renderPL(); }); li.appendChild(play);
@@ -909,11 +909,40 @@ function deletePL(p,btn){ if(btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.
   playlists.splice(playlists.indexOf(p),1);
   if(!view.demo) chain('pl:'+p.id, async()=>{ const r=await sb.from('lr_playlists').delete().eq('id',p.id); if(r.error) throw r.error; }).then(()=>rt.send('pl',{})).catch(()=>toast('삭제하지 못했어요'));
   if(p.featured&&playlists[0]){ playlists[0].featured=true; savePL(playlists[0]); } if(nowPL===p) startPL(featured()); openPL=featured(); renderPL(); }
+function addTrack(t){ openPL.tracks.push(t); savePL(openPL);
+  if(!nowPL||!nowPL.tracks.length) startPL(openPL,openPL.tracks.length-1); else updateNow(); renderPL(); }
 $('pl-add').addEventListener('submit',e=>{ e.preventDefault(); const err=$('pl-err'); const t=parseYT($('pl-url').value);
   if(!t){ err.textContent='유튜브 영상이나 재생목록 링크를 넣어주세요. 예: https://youtu.be/… 또는 youtube.com/watch?v=…'; return; }
   err.textContent=''; t.title=$('pl-title').value.trim()||(t.k==='l'?'유튜브 재생목록':'유튜브 영상')+' · '+t.y;
-  openPL.tracks.push(t); $('pl-url').value=''; $('pl-title').value=''; savePL(openPL);
-  if(!nowPL||!nowPL.tracks.length) startPL(openPL,openPL.tracks.length-1); else updateNow(); renderPL(); });
+  $('pl-url').value=''; $('pl-title').value=''; addTrack(t); });
+// search YouTube (through the lr-yt-search edge function) and add a result with one tap
+function addTab(search){ $('add-search').setAttribute('aria-selected',search); $('add-link').setAttribute('aria-selected',!search); $('pl-search').hidden=!search; $('pl-add').hidden=search; (search?$('ys-q'):$('pl-url')).focus(); }
+$('add-search').addEventListener('click',()=>addTab(true)); $('add-link').addEventListener('click',()=>addTab(false));
+let ysSeq=0, ysT=null; const ysCache={};
+function ysEmpty(msg){ $('ys-list').innerHTML=''; const li=document.createElement('li'); li.className='empty'; li.textContent=msg; $('ys-list').appendChild(li); }
+async function ytSearch(){ const q=$('ys-q').value.trim(), type=$('ys-type').value, seq=++ysSeq;
+  if(!q){ ysEmpty('듣고 싶은 노래나 분위기를 검색해보세요 · 예: 새벽 로파이, 비 오는 날 재즈'); return; }
+  const key=type+':'+q; let r=ysCache[key];
+  if(!r){ ysEmpty('찾는 중…');
+    try{ const res=await fetch(SB_URL+'/functions/v1/lr-yt-search?q='+encodeURIComponent(q)+'&type='+type,{headers:{apikey:SB_KEY}}); r=await res.json(); if(!res.ok&&!(r.items||[]).length) throw new Error(r.error||res.status); ysCache[key]=r; }
+    catch(e){ if(seq===ysSeq) ysEmpty('검색하지 못했어요 · 잠시 후 다시 해보거나 🔗 링크로 추가해주세요'); return; } }
+  if(seq!==ysSeq) return;
+  const items=r.items||[]; if(!items.length){ ysEmpty('"'+q+'" 검색 결과가 없어요'); return; }
+  const list=$('ys-list'); list.innerHTML='';
+  items.forEach(it=>{ const li=document.createElement('li'); li.className='ysr'; li.dataset.y=it.y;
+    li.innerHTML='<img alt="" loading="lazy" referrerpolicy="no-referrer"><span class="t"><b></b><small></small></span><button type="button">＋ 추가</button>';
+    const im=li.querySelector('img'); im.onerror=()=>{ im.style.visibility='hidden'; }; im.src=it.thumb||('https://i.ytimg.com/vi/'+it.y+'/mqdefault.jpg'); li.querySelector('b').textContent=it.title;
+    li.querySelector('small').textContent=[it.k==='l'?'재생목록':'',it.channel,it.length].filter(Boolean).join(' · ');
+    const b=li.querySelector('button'); b.setAttribute('aria-label',it.title+' 추가');
+    b.addEventListener('click',()=>{ if(!openPL||b.classList.contains('done')) return; addTrack({k:it.k, y:it.y, title:it.title.slice(0,120)}); toast('"'+it.title.slice(0,30)+'" 추가했어요'); });
+    list.appendChild(li); });
+  markAdded(); }
+function markAdded(){ const have=new Set(((openPL&&openPL.tracks)||[]).map(t=>t.y));
+  document.querySelectorAll('#ys-list .ysr').forEach(li=>{ const b=li.querySelector('button'), on=have.has(li.dataset.y); b.classList.toggle('done',on); b.textContent=on?'✓ 담음':'＋ 추가'; }); }
+$('ys-q').addEventListener('input',()=>{ clearTimeout(ysT); ysT=setTimeout(ytSearch,450); });
+$('ys-form').addEventListener('submit',e=>{ e.preventDefault(); clearTimeout(ysT); ytSearch(); });
+$('ys-type').addEventListener('change',()=>{ clearTimeout(ysT); ytSearch(); });
+ysEmpty('듣고 싶은 노래나 분위기를 검색해보세요 · 예: 새벽 로파이, 비 오는 날 재즈');
 function startPL(p,i=0,autoplay=false){ nowPL=p; nowIdx=i; progress=0; loadNow(autoplay||playing); }
 function updateNow(){ const t=nowPL&&nowPL.tracks[nowIdx];
   songTitle=t?t.title:'플레이리스트가 비어 있어요'; $('song').textContent=songTitle;
